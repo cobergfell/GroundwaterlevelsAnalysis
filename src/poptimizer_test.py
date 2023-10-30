@@ -1864,6 +1864,8 @@ class Poptimizer:
         N = len(X)
         
         lags = np.arange(0,N)
+
+        
         t = lags*lagtime
         acfsample = np.zeros((N,3)) # declare sample autocorrelation array, with lower and upper confidence interval
 
@@ -2038,7 +2040,7 @@ class Poptimizer:
             
             
             ax3 = fig.add_axes([X[2],Y[0],plot_length,plot_height],frameon=True, xscale=None, yscale=None)  
-            
+
             acfsample, a, t, SE = Poptimizer.autocorrelation(residuals_series, lagtime = self.time_step_targets)
     
             model = np.exp(-a*t)

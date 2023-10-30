@@ -13,7 +13,6 @@ Created on Wed Apr 12 11:03:11 2023
 import scipy
 import os
 import numpy as np
-from headstimeseries import Heads
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca,close
@@ -33,7 +32,7 @@ class WellMetaData():
 
     
     def __init__(self, name = None, X = None, Y = None, Z = None, L = None, surface_level = None,
-                 screen_top = None, screen_bottom = None):
+                 screen_top = None, screen_bottom = None, screen_number= None):
         
 
         """ 
@@ -64,10 +63,13 @@ class WellMetaData():
             
             
         screen_bottom: float (optional)
-            Screen bottom elevation               
+            Screen bottom elevation  
+
+        screen_number: float (optional)
+            Screen number  
+             
 
         """
-        
         
         self._name = name
         self._X = X
@@ -77,7 +79,7 @@ class WellMetaData():
         self._surface_level = surface_level
         self._screen_top = screen_top 
         self._screen_bottom = screen_bottom  
-       
+        self._screen_number = screen_number
         
 
     def __repr__(self):
@@ -86,7 +88,16 @@ class WellMetaData():
 
         clsname = str(self.__class__.__name__)
         string = f'{clsname}'
-        string += f'(name = {self.name}, X = {self.X}, Y = {self.Y})\n'
+        string += f'(name = {self.name},'
+        string += f'X = {self.X},'
+        string += f'Y = {self.Y},'
+        string += f'Z = {self.Z},'
+        string += f'surface_level = {self.surface_level},'
+        string += f'screen_top = {self.screen_top},'
+        string += f'screen_bottom = {self.screen_bottom}'
+        string += f')' 
+        
+ 
         return string
 
 
@@ -174,10 +185,21 @@ class WellMetaData():
         """getter for updated screen bottom."""
         return self._screen_bottom
 
-    @screen_top.setter
+    @screen_bottom.setter
     def screen_bottom(self,screen_bottom):
         """setter for updated screen_bottom."""
         self._screen_bottom = screen_bottom
+        
+        
+    @property
+    def screen_number(self):
+        """getter for updated screen number."""
+        return self._screen_bottom
+
+    @screen_number.setter
+    def screen_number(self,screen_number):
+        """setter for updated screen number."""
+        self._screen_number = screen_number        
 
     
             
@@ -191,14 +213,21 @@ class WellMetaData():
         output_string = (f'\n\nMonitoring wells metadata\n'
             
                 f'{"name =".ljust(justify)} {self.name:<{paddingright}}\n'     
-                f'{"X =".ljust(justify)} {self.X:<{paddingright}.2f}\n'
-                f'{"Y =".ljust(justify)} {self.Y:<{paddingright}.2f}\n'
-                f'{"Z =".ljust(justify)} {self.Z:<{paddingright}.2f}\n'
+                f'{"X =".ljust(justify)} {self._X:<{paddingright}.2f}\n'
+                f'{"Y =".ljust(justify)} {self._Y:<{paddingright}.2f}\n'
+                f'{"Z =".ljust(justify)} {self._Z:<{paddingright}.2f}\n'
                 )
         
-        if self.surface_level is not None:
-            output_string += f'{"Surface level =".ljust(justify)} {self.surface_level:<{paddingright}.2f}\n'
-                        
+        if self._surface_level is not None:
+            output_string += f'{"Surface level =".ljust(justify)} {self._surface_level:<{paddingright}.2f}\n'
+        
+        if self._screen_top is not None:
+            output_string += f'{"Screen top =".ljust(justify)} {self._screen_top:<{paddingright}.2f}\n'                             
+            
+        if self._screen_bottom is not None:
+            output_string += f'{"Screen bottom =".ljust(justify)} {self._screen_bottom:<{paddingright}.2f}\n'            
+            
+            
         output_string+= (f'\n\n')                
                 
                 

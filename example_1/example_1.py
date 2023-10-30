@@ -187,7 +187,7 @@ for _heads in heads:
     to_plot = [_heads.interpolated, _heads.modeled]
     legend_list = ['interpolated observations', 'modeled']
     
-    plotax = _heads.plot(tseries_list = to_plot, legend_list = legend_list, share_axes = True )
+    plotax = _heads.plot_multiple_series(tseries_list = to_plot, legend_list = legend_list, share_axes = True )
     output_string = _heads.generate_output(model_definition = md)
     print('192 Check output_string: ',output_string)   
 

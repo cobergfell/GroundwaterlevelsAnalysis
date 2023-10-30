@@ -342,7 +342,7 @@ class IncompleteGamma(UnitResponseFunctionsParent):
             
      
 
-        if stress_type == "pump" :
+        elif stress_type == "pump" :
             pname = "A" + suffix
             parameters[pname] = {
                 "isvariable": True,
@@ -373,7 +373,36 @@ class IncompleteGamma(UnitResponseFunctionsParent):
                 "maxvalue": 3.0,
                 "initvalue": 2.3}              
             
+        elif stress_type == "riv" :
+            pname = "A" + suffix
+            parameters[pname] = {
+                "isvariable": True,
+                "logtransform": True,
+                "pname": pname,
+                "minvalue": 1.00E-3,
+                "maxvalue": 2.,
+                "initvalue": 0.85, 
+                }                    
             
+            pname = "a" + suffix
+            parameters[pname] = {
+                "isvariable": True,
+                "logtransform": True,
+                "pname": pname,
+                "minvalue": 5e-5,#1e-4,
+                "maxvalue": 1e-1,
+                "initvalue": 1e-2
+                }                   
+                
+                
+            pname = "n"+suffix
+            parameters[pname] = {   
+                "isvariable": True,
+                "logtransform": True,
+                "pname": pname,
+                "minvalue": 0.3,
+                "maxvalue": 3.0,
+                "initvalue": 0.5}             
              
         return parameters
    

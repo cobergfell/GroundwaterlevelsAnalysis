@@ -163,7 +163,7 @@ popt, pcov, pcor, pstdev, p_dict, expvar, expvarnoise  = potimizer.poptimizer_ho
 to_plot = [heads.interpolated, heads.modeled]
 legend_list = ['interpolated observations', 'modeled']
 
-plotax = heads.plot(tseries_list = to_plot, legend_list = legend_list, share_axes = True )
+plotax = heads.plot_multiple_series(tseries_list = to_plot, legend_list = legend_list, share_axes = True )
 output_string = heads.generate_output(model_definition = md)
 print('168 output_string: ',output_string)   
 ax = potimizer.residuals_check_diagrams(heads = _heads)    

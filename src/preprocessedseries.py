@@ -88,6 +88,10 @@ class Preprocessed:
     all_targets_for_neural_networks : python object of data type 'dict'
         A dictionary containing the data needed as input for a neural network model
         
+    forcast : boolean
+        A boolean flag to indicate if preprocessing applies to forcast groundwater heads 
+        (in which case the simulation period extends the observation period)
+        
         
 
     Methods
@@ -108,6 +112,90 @@ class Preprocessed:
 
     """
     
+
+    
+
+    def __init__(self, heads = None, stresses_dict = None,time_step = None,time_step_targets = None, model_definition = None,
+                 memory_dict = None, tminstr = None, tmaxstr = None, tminnum = None, tmaxnum = None, 
+                 Nint = None, settings = None, forcast = False):
+        
+        
+        clsname = str(self.__class__.__name__)
+        modulename = str(__name__)        
+
+        if tminnum is not None and tminstr is not None:
+            logger.warning("Minimum time is both given as string and numeric value."
+                              "String value will be ignored")
+            
+        if tminnum is None and tminstr is None:
+            tminstr_default = '01-01-1900'
+            dtmin = datetime.strptime(tminstr_default,'%d-%m-%Y')
+            tmin = date2num(dtmin)
+            
+        if tminstr is not None:
+            tmin = datestring2num(tminstr)
+
+            
+        if tminnum is not None:   # entering a time number overrides entering a time string
+             tmin = tminnum
+                         
+             
+        if tmaxnum is not None and tmaxstr is not None:
+            message = (f'\nIn class {clsname} of module {modulename}.py: maximum time is both given '
+                       f'as string and numeric value. String value will be ignored.\n')                          
+            logger.warning(message)                      
+
+        if tmaxnum is None and tmaxstr is None:
+            tmaxstr_default = '31-12-2100'
+            dtmax = datetime.strptime(tmaxstr_default,'%d-%m-%Y')
+            tmax = date2num(dtmax)
+             
+        if tmaxstr is not None:
+            tmax = datestring2num(tmaxstr)
+            
+        if tmaxnum is not None:   # entering a time number overrides entering a time string
+             tmax = tmaxnum    
+                           
+        self.tmin = tmin
+        self.tmax = tmax
+        self.tminstr = tminstr
+        self.tmaxstr = tmaxstr        
+        self.settings = settings
+        self.heads = heads
+        self.stresses_dict = stresses_dict
+        
+        if time_step is None:
+            time_step=1.0
+        self.time_step = time_step   
+        self.model_definition = model_definition  
+
+        if time_step_targets is None:
+            time_step_targets = 14.0
+        self.time_step_targets = time_step_targets
+        self.memory_dict = memory_dict
+
+        Nint_dict = {} 
+        
+        """Nint is a dictionary of number of time intervals needed for ech stress time series to take into account the system memory"""
+        for key in memory_dict:
+            memory = memory_dict[key]
+            Nint = self.memory_to_time_intervals(memory, time_step)
+            Nint_dict[key] = Nint
+        self.Nint_dict = Nint_dict
+
+        self.time = None
+        self.all_data_for_neural_networks = None
+        self.all_targets_for_neural_networks = None        
+        self.forcast = forcast
+
+    def __repr__(self):
+        """Prints a simple string representation of the time series."""
+        return f"{self.__class__.__name__}" \
+               f"(name={self.name}, " \
+               f"tmin={self.settings['tmin']}, " \
+               f"tmax={self.settings['tmax']})"
+        
+        
     default_settings = {}
 
     @staticmethod    
@@ -151,90 +239,6 @@ class Preprocessed:
         interpolated[:,1]=interp_func(time)
 
         return interpolated
-    
-
-    def __init__(self, heads = None, stresses_dict = None,time_step = None,time_step_targets = None, model_definition = None,
-                 memory_dict = None, tminstr = None, tmaxstr = None, tminnum = None, tmaxnum = None, 
-                 Nint = None, settings = None):
-        
-        
-        clsname = str(self.__class__.__name__)
-        modulename = str(__name__)        
-
-        if tminnum is not None and tminstr is not None:
-            logger.warning("Minimum time is both given as string and numeric value."
-                              "String value will be ignored")
-            
-        if tminnum is None and tminstr is None:
-            tminstr_default = '01-01-1900'
-            dtmin = datetime.strptime(tminstr_default,'%d-%m-%Y')
-            tmin = date2num(dtmin)
-            
-        if tminstr is not None:
-            tmin = datestring2num(tminstr)
-
-            
-        if tminnum is not None:   
-             tmin = tminnum
-                         
-             
-        if tmaxnum is not None and tmaxstr is not None:
-            message = (f'\nIn class {clsname} of module {modulename}.py: maximum time is both given '
-                       f'as string and numeric value. String value will be ignored.\n')                          
-            logger.warning(message)                      
-
-        if tmaxnum is None and tmaxstr is None:
-            tmaxstr_default = '31-12-2100'
-            dtmax = datetime.strptime(tmaxstr_default,'%d-%m-%Y')
-            tmax = date2num(dtmax)
-             
-        if tmaxstr is not None:
-            tmax = datestring2num(tmaxstr)
-            
-        if tmaxnum is not None:   
-             tmax = tmaxnum    
-                           
-        self.tmin = tmin
-        self.tmax = tmax
-        self.tminstr = tminstr
-        self.tmaxstr = tmaxstr        
-        self.settings = settings
-        self.heads = heads
-        self.stresses_dict = stresses_dict
-        
-        if time_step is None:
-            time_step=1.0
-        self.time_step = time_step   
-        self.model_definition = model_definition  
-
-        if time_step_targets is None:
-            time_step_targets = 14.0
-        self.time_step_targets = time_step_targets
-        self.memory_dict = memory_dict
-
-        Nint_dict = {} 
-        
-        """Nint is a dictionary of number of time intervals needed for ech stress time series to take into account the system memory"""
-        for key in memory_dict:
-            memory = memory_dict[key]
-            Nint = self.memory_to_time_intervals(memory, time_step)
-            Nint_dict[key] = Nint
-        self.Nint_dict = Nint_dict
-
-        self.time = None
-        self.all_data_for_neural_networks = None
-        self.all_targets_for_neural_networks = None        
-        
-
-    def __repr__(self):
-        """Prints a simple string representation of the time series."""
-        return f"{self.__class__.__name__}" \
-               f"(name={self.name}, " \
-               f"tmin={self.settings['tmin']}, " \
-               f"tmax={self.settings['tmax']})"
-        
-        
-
 
     def cumulate(self,series, tmin = None, tmax = None):
         """
@@ -396,25 +400,23 @@ class Preprocessed:
         model_definition = self.model_definition
         
         
-        t = lambda t_str : date2num(datetime.strptime(t_str,'%Y-%m-%d')) #chob: lamda function to transform time string into time num
+        t = lambda t_str : date2num(datetime.strptime(t_str,'%Y-%m-%d'))
 
-        list_tmin = []
-        if self.tmin is not None:
-            list_tmin.append(self.tmin)
+        list_tmin = [self.tmin] # initialize list of minimum times 
 
-        list_tmax = []
-        if self.tmax is not None:
-            list_tmax.append(self.tmax)
+        list_tmax = [self.tmax] # initialize list of minimum times 
         
 
         if not isinstance(self.heads, list):
             _heads = [self.heads]
         else:
             _heads = self.heads
-
-        for heads in _heads:
-            list_tmin.append(heads.observed[0,0])
-            list_tmax.append(heads.observed[-1,0])   
+            
+            
+        if self.forcast == False: 
+            for heads in _heads:
+                list_tmin.append(heads.observed[0,0])
+                list_tmax.append(heads.observed[-1,0])   
                 
 
         _observed_stresses_dict = {}
@@ -446,8 +448,6 @@ class Preprocessed:
                     for e in _observed_stresses_dict[key]:
                         mask = (_observed_stresses_dict[key][e][:,0] > subtmin) & (_observed_stresses_dict[key][e][:,0] < subtmax)
                         _observed_stresses_dict[key][e] = _observed_stresses_dict[key][e][mask,:]
-      
-
 
         for key in  _observed_stresses_dict:
             for e in  _observed_stresses_dict[key]:
@@ -463,8 +463,7 @@ class Preprocessed:
         # tmax = int(min(list_tmax)-1)
         tmin = max(list_tmin)
         tmax = min(list_tmax) 
-        
-        
+
         
         self.tmin = tmin
         self.tmax = tmax
@@ -715,19 +714,6 @@ if __name__ == "__main__":
     stresses_dict['evap'] = {}
     stresses_dict['evap'][key] = Stress.read_from_csv(path_to_file, stress_type = 'evap')    
 
-    
-    # stresses_dict['pump'] = {}
-    # path_to_file_folder = os.path.join(path_to_parent_folder,'resources','selected_wells')  
-    # path_to_file=os.path.join(path_to_file_folder,'total_extracted_volumes_Nijverdal.csv')    
-    # key = basename(path_to_file)
-    # stresses_dict['pump'][key] = Stress.read_from_csv(path_to_file, stress_type = 'pump')  
-    
-    # path_to_files_folder = os.path.join(path_to_parent_folder,'resources','selected_wells_paper1_reformatted')  
-    # list_of_files_names = os.listdir(path_to_files_folder)
-    # for filename in list_of_files_names:
-    #     path_to_file = os.path.join(path_to_files_folder,filename)
-    #     key = basename(path_to_file)
-    #     stresses_dict['pump'][key] = Stress.read_from_csv(path_to_file, stress_type = 'pump')    
 
     tminstr = '01-01-1900 08:00:00'
     tmaxstr = '31-12-2100 08:30:00'
@@ -735,13 +721,6 @@ if __name__ == "__main__":
     path_to_file_folder = os.path.join(path_to_parent_folder,'resources')  
     path_to_file = os.path.join(path_to_file_folder,'28AP0093_1.txt')
     heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
-    
-    # path_to_file_folder = os.path.join(path_to_parent_folder,'resources','selected_filters_paper1')  
-    # list_of_piezometers_files_names = os.listdir(path_to_file_folder)
-    # for filename in list_of_piezometers_files_names: 
-    #     path_to_file = os.path.join(path_to_file_folder,filename)
-    #     heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr) 
-    #     heads.plot()
 
 
     arguments_dic = {}
@@ -751,13 +730,6 @@ if __name__ == "__main__":
             stresses_dict[key][e].plot()
 
     
-    # time_step = 1./(24.*2)
-    
-    # memory_dict = {'prec':365*1,
-    #           'evap':365*1,
-    #           'riv':7,
-    #           'pump':10,
-    #           'noise':30}
         
     time_step = 1.#/(24.*2)
     
