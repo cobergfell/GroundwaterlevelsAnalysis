@@ -67,12 +67,11 @@ def determine_format_datetime(datetimestring):
         '%d/%m/%Y %H:%M:%S'
         '%d-%m-%Y %H:%M:%S'
         '%d-%m-%Y %H:%M',
-        '%Y/%m/%d'
-        '%d/%m/%Y'
-        '%d-%m-%Y'
-        '%d-%m-%Y'
-        '%m-%d-%Y %H:%M'
-        '%m/%d/%Y %H:%M'
+        '%Y/%m/%d',
+        '%d/%m/%Y',
+        '%d-%m-%Y',
+        '%m-%d-%Y %H:%M',
+        '%m/%d/%Y %H:%M',
         
    
     Return

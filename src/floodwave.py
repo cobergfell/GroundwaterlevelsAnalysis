@@ -108,7 +108,7 @@ def Stehfest_weights(N):
 def step_prec_floodwave_model(p,x,lp):
 
     """ 
-    A utility function to calculate response to a unit step of precipitation
+    A function to calculate response to a unit step of precipitation
         
     Parameters
     ----------
@@ -121,7 +121,7 @@ def step_prec_floodwave_model(p,x,lp):
     p[3] = w represents the specific river bottom resistance to flow (dimension: T.L-1)
     p[4] = L represents the aquifer length (dimension: L)
     
-    x  : distance between the piezometer and the closest point of the river bench
+    x  : distance between the piezometer and the closest point of the river bank
     lp : Laplace parameter        
         
         
@@ -154,7 +154,7 @@ def step_riv_floodwave_model_bc_type_1(p,x,lp):
     
     """
     
-    A utility function to calculate the response to a unit step of river stage 
+    A function to calculate the response to a unit step of river stage 
     variation, with L the distance between the river and a closed boundary
     (water divide)
     
@@ -169,7 +169,7 @@ def step_riv_floodwave_model_bc_type_1(p,x,lp):
     p[3] = w represents the specific river bottom resistance to flow (dimension: T.L-1)
     p[4] = L represents the aquifer length (dimension: L)
     
-    x  : distance between the piezometer and the closest point of the river bench
+    x  : distance between the piezometer and the closest point of the river bank
     lp : Laplace parameter    
 
     
@@ -217,7 +217,7 @@ def step_riv_floodwave_model_bc_type_2(p,x,lp):
     p[3] = w represents the specific river bottom resistance to flow (dimension: T.L-1)
     p[4] = L represents the aquifer length (dimension: L)
     
-    x  : distance between the piezometer and the closest point of the river bench
+    x  : distance between the piezometer and the closest point of the river bank
     lp : Laplace parameter    
 
     (see my derivation page 101-102 of my notebook)
@@ -232,7 +232,6 @@ def step_riv_floodwave_model_bc_type_2(p,x,lp):
 
     gamma = np.sqrt(S*lp/(T*(c*S*lp+1)))
     denominator = lp*(T*w*gamma*np.sinh(2*gamma*L)+np.cosh(2*gamma*L))
-    #Attention: in the paper we write 4L because the distance from river to opposite direction is 2L, but the L here is in fact 2L
     phi2_Laplace = np.sinh(gamma*(2*L-x))/denominator
     phi1_Laplace = phi2_Laplace/(c*S*lp+1)        
 

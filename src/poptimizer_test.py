@@ -287,6 +287,47 @@ class Poptimizer:
         self.analytical_jacobian = analytical_jacobian
         self.maxiter = maxiter        
 
+        # update drainage base value if necessary
+        if model_definition['db']['equal_to_mean_river_stage'] == True:
+            
+            keys = stresses_dict['riv'].keys()
+            db_list = []
+            for key in keys:
+                db = np.mean(stresses_dict['riv'][key].interpolated[:,1]) 
+                db_list.append(db)
+            db = np.mean(db_list)  
+            print('300 riv in stresses_dict','riv' in stresses_dict)
+            print('300 db',db)
+            input()
+            try: 
+                if 'riv' in stresses_dict:
+                    keys = stresses_dict['riv'].keys()
+                    db_list = []
+                    for key in keys:
+                        db = np.mean(stresses_dict['riv'][key].interpolated[:,1]) 
+                        db_list.append(db)
+                    db = np.mean(db_list)  
+                    print('310 db',db)
+                    input()
+                else:
+                    message = (f'\nIn class {clsname} of module {modulename}.py: '
+                               f'Trying to update drainage base as mean river stage but not river data wre entered.\n')                          
+                    logger.warning(message)
+                
+                
+                
+                i = p_indexes['db']['regime_1']['basicparam'][0]
+
+                if p_dict['logtransform'][i] == True:
+                    db = np.exp(db)
+                
+                self._p_dict['p'][i] = db
+  
+            except:
+                message = (f'\nIn class {clsname} of module {modulename}.py: '
+                f'Update of drainage base as mean river stage unsuccesful.\n')                          
+                logger.warning(message)
+
         def __repr__(self):
             """Prints the optimisation context."""
             textToFormat = ('Optimisation class: {cls}'
@@ -418,14 +459,12 @@ class Poptimizer:
                 targets = targets_list[i]
                 targets_selector = targets_selector_list[i]
                 weights = targets_weights_list[i]
-                
                 nt = len(targets) # number of targets of that specific time series
                 index_end = index_begin + nt
-
                 res[index_begin:index_end] = targets[:,1]-sim[targets_selector,1]
-                
                 res[index_begin:index_end] = np.multiply(res[index_begin:index_end],weights)
                 index_begin = index_end
+
 
         else:
             sim = Simulation(time = time, p_dict = p_dict, stresses_dict = stresses_dict, 
@@ -1126,9 +1165,11 @@ class Poptimizer:
                 err = self.residuals(p, heads = _heads)
             targets = _heads.targets
             observed_deviations_from_mean = targets[:,1]-np.mean(targets[:,1])  
+
         mae = np.mean(abs(err))        
         SSreg = sum(pow(err,2))
-        SStot = sum(pow(observed_deviations_from_mean,2))
+        SStot = sum(pow(observed_deviations_from_mean,2))  
+        
         EV = 100*(1-SSreg/SStot)
 
         return EV, mae 
@@ -1139,7 +1180,7 @@ class Poptimizer:
 
     
     
-    def poptimizer_home_brew(self):
+    def poptimizer_home_brew(self, delta = 2.0):
         
         """
         
@@ -1151,7 +1192,14 @@ class Poptimizer:
         
         Parameters
         ----------
-        The parameters needed are entered by initializing the class object, see Class documentation
+        
+        delta: float
+            In this method, the delta parameter determines the size of the steps in the objective function landscape; 
+            the bigger delta, the bigger the step ;0.1 is quite slow if far from the optimum; prefered values to begin witg are
+            in the order of 1.0 to 2.5, with 2. the default value (from experience, not from any theory)
+        
+        
+        All other parameters needed are entered by initializing the class object, see Class documentation
         
     
         References
@@ -1262,7 +1310,7 @@ class Poptimizer:
         logtransform = []
         for e in p_dict['logtransform']:
             logtransform.append(e)        
-        
+         
         selectparam = np.array(isvariable) # selectparam select variable parameters
         selectparam_det = np.array(isvariable_det) # selectparam_det select variable parameters except those used in noise model
         
@@ -1271,8 +1319,9 @@ class Poptimizer:
         selectlog_det = np.array(logtransform)[selectparam_det]
 
         p_init = np.array(p_dict['p_init'])
-        popt = p_init[selectparam]
-
+        popt = p_init[selectparam]  
+        
+                            
         eps1 = 1e-10
         eps2 = 1e-10
         eps3 = 1e-10
@@ -1292,8 +1341,7 @@ class Poptimizer:
         res_old = self.residuals(popt)
         expvarold = self.goodness_of_fit(popt)[0]
 
-
-        print('1275  analytical_jacobian flag: ',analytical_jacobian)
+        print('1338  analytical_jacobian flag: ',analytical_jacobian)
         input()
         
         if model_residuals == False:
@@ -1343,8 +1391,8 @@ class Poptimizer:
         indmin_old = 1e9
         mu = 0
         nu = 1.5
-        
-        delta = 2. #delta determines the size of the steps in the objective function landscape; the bigger delta, the bigger the step;0.1 is slows but will not miss the optimum
+
+        delta = delta  #2.0 is the default value, see above delta determines the size of the steps in the objective function landscape; the bigger delta, the bigger the step;0.1 is slows but will not miss the optimum
         dmax = 1.5
         
         
@@ -1464,9 +1512,12 @@ class Poptimizer:
                       
     
                 if condition == True:
+
                     mu = 0
                     popt = ptry
                     popt_full = []
+                    
+
 
                     for e in p_dict['p_init']:
                         popt_full.append(e)
@@ -1474,7 +1525,7 @@ class Poptimizer:
                     popt_full = np.array(popt_full)
                     popt_full[selectparam] = popt
                     p_dict['p'] = popt_full.tolist()
-                    
+
                     res_old = res_new
                     expvarold = expvarnew                         
                         
@@ -1523,7 +1574,7 @@ class Poptimizer:
    
                 else:
                     
-                    print('1556 modify Levenberg-Marquardt damping parameter mu through delta and nu')
+                    print('1570 modify Levenberg-Marquardt damping parameter mu through delta and nu')
                     delta = delta / 1.5
                     nu *= 1.5
                     # print('1556 switch to numerical Jacobian and modify Levenberg-Marquardt damping parameter mu ')
@@ -1864,7 +1915,7 @@ class Poptimizer:
         N = len(X)
         
         lags = np.arange(0,N)
-
+   
         
         t = lags*lagtime
         acfsample = np.zeros((N,3)) # declare sample autocorrelation array, with lower and upper confidence interval
@@ -1929,6 +1980,8 @@ class Poptimizer:
         observed = heads.observed
         interpolated = heads.interpolated
         tseries_type = heads.tseries_type
+        
+        
         residuals_series = heads.residuals
         noise_series = heads.noise
             
@@ -2040,6 +2093,7 @@ class Poptimizer:
             
             
             ax3 = fig.add_axes([X[2],Y[0],plot_length,plot_height],frameon=True, xscale=None, yscale=None)  
+
 
             acfsample, a, t, SE = Poptimizer.autocorrelation(residuals_series, lagtime = self.time_step_targets)
     
@@ -2185,7 +2239,7 @@ if __name__ == "__main__":
     potimizer = Poptimizer(heads = heads, time = time, p_dict = p_dict, time_step = time_step,time_step_targets = preprocessed.time_step_targets,
                             stresses_dict = stresses_dict, model_residuals = True, model_definition = md,
                             Nint_dict = Nint_dict, arguments_dict = arguments_dict, settings = settings,
-                            analytical_jacobian = True, maxiter = 150)    
+                            analytical_jacobian = True, maxiter = 50)    
     
 
     popt, pcov, pcor, pstdev, p_dict, expvar, expvarnoise  = potimizer.poptimizer_home_brew()    
@@ -2198,7 +2252,8 @@ if __name__ == "__main__":
     to_plot = [heads.interpolated, heads.modeled]
     legend_list = ['interpolated observations', 'modeled']
     
-    plotax = heads.plot(tseries_list = to_plot, legend_list = legend_list, share_axes = True )
+    
+    plotax = heads.plot()
     output_string = heads.generate_output(model_definition = md)
     print('1848 output_string: ',output_string)   
     

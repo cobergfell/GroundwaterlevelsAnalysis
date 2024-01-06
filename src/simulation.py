@@ -352,7 +352,7 @@ class Simulation:
                         
                         if 'riv' in stresses_dict:
 
-                            river_series_name = list(stresses_dict['riv'].keys())[0]#there is only one list element
+                            river_series_name = list(stresses_dict['riv'].keys())[0] #assume for now only one list element
                             Xriv = stresses_dict['riv'][river_series_name].X
                             Yriv = stresses_dict['riv'][river_series_name].Y                        
     
@@ -366,8 +366,8 @@ class Simulation:
                                 arguments_dict['Xpiezo'] = X 
                                 arguments_dict['Ypiezo'] = Y      
                                 arguments_dict['Zpiezo'] = Z
-                                arguments_dict['Lpiezo'] = L                            
-                                
+                                arguments_dict['Lpiezo'] = L          
+
                             except:
                                 clsname = str(self.__class__.__name__)
                                 modulename = str(__name__)
@@ -379,6 +379,7 @@ class Simulation:
     
                     if model_definition[stress_type]['use_normalized_time_series'] == True:
                         preprocessed_stress = stresses_dict[stress_type][e].interpolated_normalized   
+                        
                     else:
                         preprocessed_stress = stresses_dict[stress_type][e].interpolated
                     
@@ -400,13 +401,11 @@ class Simulation:
                     convolved_stress[:,1] = sign * convolved_stress[:,1]
                     mask = np.isnan(convolved_stress[:,1])
                     convolved_stress[mask,1] = 0
-
-                    simulation[:,1] = simulation[:,1] + convolved_stress[:,1]
+                    simulation[:,1] = simulation[:,1] + convolved_stress[:,1]                                    
 
                     components[stress_type][e] = convolved_stress
-      
-        
-        if model_definition['db']['mean_observed_heads_minus_mean_response'] == False:
+              
+        if model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] == False:
             components['constant base'] = {}
             components['constant base']['db'] = {}
             i = p_indexes['db']['regime_1']['basicparam'][0]
@@ -437,7 +436,7 @@ class Simulation:
             components['constant base']['db'] = db_as_component          
 
         simulation[:,1] = simulation[:,1] + db
-        
+          
         self._simulated = simulation
         
         self.components = components

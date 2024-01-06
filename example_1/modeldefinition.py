@@ -46,20 +46,15 @@ class ModelDefinition:
     
     def __init__(self, working_directory  = None, read_from_resources = False):
 
-
+        
         model_definition = {}
         model_definition['db'] = {}
         model_definition['db']['funct_type'] = 'constant'
         model_definition['db']['fixed'] = False
-        model_definition['db']['mean_observed_heads_minus_mean_response'] = False #True # # overrules model_definition['db']['fixed']
-        
-        if model_definition['db']['mean_observed_heads_minus_mean_response'] == False:
-            if model_definition['db']['fixed'] == True:
-                model_definition['db']['user_entered_value'] = 1.47#0.01#11.43 # this is just an example
-
-            else:
-                model_definition['db']['initial_value_from'] = 'observed_heads_median'
-                
+        model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] =  False #True #
+        model_definition['db']['default_initial_value'] = 0
+        model_definition['db']['equal_to_observed_heads_median'] = True
+        model_definition['db']['equal_to_mean_river_stage'] = False        
                 
         model_definition['constrain_with_harmonics'] = [] #['prec','evap'] # ['prec','evap']       
 

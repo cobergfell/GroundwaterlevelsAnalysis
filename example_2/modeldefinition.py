@@ -48,23 +48,16 @@ class ModelDefinition:
 
         self._model_definition = None
 
-
         model_definition = {}
         model_definition['db'] = {}
         model_definition['db']['funct_type'] = 'constant'
-        model_definition['db']['fixed'] = True
-        model_definition['db']['mean_observed_heads_minus_mean_response'] = False #True # overrules model_definition['db']['fixed']
+        model_definition['db']['fixed'] = True # False
+        model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] = False #True 
+        model_definition['db']['default_initial_value'] = 0 # 11.43
+        model_definition['db']['equal_to_observed_heads_median'] = False
+        model_definition['db']['equal_to_mean_river_stage'] = False
         
-        if model_definition['db']['mean_observed_heads_minus_mean_response'] == False:
-            if model_definition['db']['fixed'] == True:
-                model_definition['db']['user_entered_value'] = 11.43
-                
-            else:
-                model_definition['db']['initial_value_from'] = 'observed_heads_median'
-                
-                
         model_definition['constrain_with_harmonics'] = [] #['prec','evap'] # ['prec','evap']       
-
         model_definition['root_zone'] = {}
         model_definition['root_zone']['funct_type'] = 'vangenuchten'
         model_definition['root_zone']['apply_root_zone'] = False #True
@@ -73,22 +66,21 @@ class ModelDefinition:
         # model_definition['prec']['funct_type'] = 'incomplete_gamma'
         # model_definition['prec']['number_of_regimes'] = 1 # if > 1, response will be weighted and superposed
         # model_definition['prec']['weighting'] = 'sigmoid'
-        
+
         model_definition['prec'] = {}
         # model_definition['prec']['funct_type'] = 'incomplete_gamma' #'floodwavemodel2L_typeI' #
         model_definition['prec']['funct_type'] = 'floodwavemodel2L_typeI' #'incomplete_gamma' #
         model_definition['prec']['number_of_regimes'] = 1 # if > 1, response will be weighted and superposed
         model_definition['prec']['weighting'] = 'sigmoid'        
         model_definition['prec']['use_normalized_time_series'] = False #True #  if true then add mean stress to the drainage base
-        
-        
+
         
         if model_definition['root_zone']['apply_root_zone'] == True: # resolve incompatibility of options
             model_definition['constrain_with_harmonics'] = []
         
         model_definition['evap'] = {} 
         model_definition['evap']['funct_type'] = 'floodwavemodel2L_typeI' # 'incomplete_gamma_f' #
-        model_definition['evap']['number_of_regimes'] = 1
+        model_definition['evap']['number_of_regimes'] = model_definition['prec']['number_of_regimes'] # for the moment prec and evap share the same number of regimes
         model_definition['evap']['weighting'] = 'prec' # this indicates that the weighing is similar to prec
         model_definition['evap']['use_normalized_time_series'] = False#True #  if true then add mean stress to the drainage base
  
@@ -99,13 +91,13 @@ class ModelDefinition:
         model_definition['riv'] = {} 
         # # model_definition['riv']['funct_type'] = 'incomplete_gamma'
         model_definition['riv']['funct_type'] = 'floodwavemodel2L_typeI'
-        model_definition['riv']['use_normalized_time_series'] = True# if true then add mean stress to the drainage base
+        model_definition['riv']['use_normalized_time_series'] = True # if true then add mean stress to the drainage base
         
         model_definition['noise'] = {} 
         model_definition['noise']['funct_type'] = 'residuals_decay_exponentially'            
-        model_definition['noise']['model_residuals'] = True #False #    #noise can also be switched off in simulations options
+        model_definition['noise']['model_residuals'] = True #    #noise can also be switched off in simulations options
 
-        
+                
         
         if working_directory == None:
             #curdir=os.getcwd()
@@ -128,11 +120,11 @@ class ModelDefinition:
                 message = (f'\n\nFilepath {filepath} does not exist\n')
                 logger.warning(message)               
 
-        memory_dict = {'prec':365*7,
-                      'evap':365*7,
-                      'riv':7,
-                      'pump':365*7,
-                      'noise':365*2}        
+        memory_dict = {'prec':365,
+                      'evap':365,
+                      'riv':365,
+                      'pump':100,
+                      'noise':100}        
   
         self.working_directory = working_directory 
         self._model_definition = model_definition     

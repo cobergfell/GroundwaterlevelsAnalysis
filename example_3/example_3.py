@@ -139,6 +139,8 @@ preprocessed = Preprocessed(heads = heads,stresses_dict = stresses_dict, time_st
 time = preprocessed.time
 time_step = preprocessed.time_step
 heads = preprocessed.heads
+time_step_targets = preprocessed.time_step_targets
+
 
 stresses_dict = preprocessed.stresses_dict 
 Nint_dict = preprocessed.Nint_dict
@@ -158,7 +160,7 @@ settings = {}
 settings['all_piezometers_share_same_model'] = True
 
 
-potimizer = Poptimizer(heads = heads, time = time, p_dict = p_dict, time_step = time_step,
+potimizer = Poptimizer(heads = heads, time = time, p_dict = p_dict, time_step = time_step,time_step_targets = time_step_targets,
                         stresses_dict = stresses_dict, model_residuals = True, model_definition = md,
                         Nint_dict = Nint_dict, settings = settings,analytical_jacobian = False)    
 

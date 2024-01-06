@@ -11,14 +11,15 @@ from timeseriesbase import TimeSeriesBase
 from datetime import datetime
 from matplotlib.dates import date2num, num2date
 from matplotlib.ticker import Formatter,FuncFormatter, NullLocator, FixedLocator
-from abc import ABC, abstractmethod
-from collections import OrderedDict
+# from abc import ABC, abstractmethod
+# from collections import OrderedDict
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca,close
 from utilities import orderOfMagnitude,generate_ticks,datestring2num,stdev_back_from_log
 from plotfunctions import simpleplot
 from wellmetadata import WellMetaData
-        
+from bs4 import BeautifulSoup   
+import requests
         
 logger = getLogger(__name__)
 
@@ -466,10 +467,10 @@ class Heads(TimeSeriesBase):
         
         return cls(name = name, X = X, Y = Y, Z = Z, metadata = metadata, 
                    observed = heads, tminstr = tminstr, tmaxstr = tmaxstr, tminnum = tmin, tmaxnum = tmax,settings = settings)           
-    
+
        
     @classmethod      
-    def read_from_DINO(cls,filepath, tminstr = None, tmaxstr = None, separator = ',', settings = None):
+    def read_from_DINO(cls,filepath, tminstr = None, tmaxstr = None, separator = ',', settings = None, datetimeformat = '%d-%m-%Y', artdiverformat = False):
         
         """
         A class method to read groundwater head time series from am ascii file 
@@ -480,16 +481,25 @@ class Heads(TimeSeriesBase):
         Parameters
         ----------
         filepath: string
-            path to the csv file
+            Path to the csv file
 
         tminstr: string (optional)
-                string specifying the minimum time on the plot (format dd-mm-yyyy)
+                String specifying the minimum time on the plot (default format dd-mm-yyyy)
                 
         tmaxstr: string (optional)
-                string specifying the maximum time on the plot (format dd-mm-yyyy)    
+                String specifying the maximum time on the plot (default format dd-mm-yyyy)    
                 
         settings : python object of data type 'dict' (optional)
-            An optional dictionary of settings             
+            An optional dictionary of settings       
+            
+            
+        datetimeformat: string (optional)
+                String specifying the date-time format (default format dd-mm-yyyy)       
+                
+                
+        artdiverformat: bool
+            Boolean variable indicating if the DINO format is the Artdiver DINO format or not         
+
         
          Example
         ----------   
@@ -525,7 +535,7 @@ class Heads(TimeSeriesBase):
         Returns
         -------
         cls: Heads object
-            An instance of Heads
+            An instance of the Heads class
 
         """
         
@@ -540,12 +550,16 @@ class Heads(TimeSeriesBase):
         tmin = -1e9
         tmax = +1e9
         
+        valueindex = 5
+        if artdiverformat == True:
+            datetimeformat = '%Y/%m/%d %H:%M:%S'
+            valueindex = 3
    
         if tminstr is not None:
-            tmin = datestring2num(tminstr)
+            tmin = datestring2num(tminstr, datetimeformat = datetimeformat)
                         
         if tmaxstr is not None:
-            tmax = datestring2num(tmaxstr)               
+            tmax = datestring2num(tmaxstr, datetimeformat = datetimeformat)               
 
         F = open(filepath)
         all_lines = F.readlines()
@@ -661,34 +675,35 @@ class Heads(TimeSeriesBase):
 
                 
         elif reference=='maaiveld':
-            #to do check if metadata are different if reference is maaiveld
+            #to do check if metadata are different if reference is surface level (in Dutch: 'maaiveld')instead of absolute datum 
             pass
         
         
         metadata = list_of_metadata[-1]#the last metadata dictionaryis used later as reference when meta data are needed
 
-        
         heads = np.empty((Nrecords,2))
         c = -1
         for i in range(data_bloc_begin,data_bloc_end):
             c = c+1
+
             line = all_lines[i]
             d = line.split(',')
-
+            
             try:
-                time_num = datestring2num(d[2])
+                time_num = datestring2num(d[2], datetimeformat = datetimeformat)
 
             except :
                 message = (f'\nDatetime format of {d[2]} could not be parsed\n')
                 logger.warning(message)
                 
             try:
-                value = float(d[5])/100 #divide by hundred because values in DINO are given in cm
+                value = float(d[valueindex])/100 #divide by hundred because values in DINO are given in cm
 
             except :
                 value = 1e9
             heads[c,0] = time_num
             heads[c,1] = value
+
 
         mask = heads[:,1] < 1e9
         heads = heads[mask]
@@ -704,6 +719,265 @@ class Heads(TimeSeriesBase):
         
         return cls(name = name, X = X, Y = Y, Z = Z, metadata = metadata, 
                    observed = heads, tminstr = tminstr, tmaxstr = tmaxstr, tminnum = tmin, tmaxnum = tmax, settings = settings)        
+    
+    
+
+
+    @classmethod      
+    def read_from_BRO_GLD(cls,filepath, tminstr = None, tmaxstr = None, separator = ',', settings = None, 
+                          datetimeformat = '%d-%m-%Y'):
+        
+        """
+        A class method to read 'GLD' type of groundwater head time series in xml format such as 
+        issued by the by broservices  https://publiek.broservices.nl 
+        (from the Dutch national geological survey institute)
+        and generate a Heads object.
+        
+        Note that in these files, the measurements data are chronologcal within
+        <measurement></measurement> elements, but the succession of these measurements
+        element is not chronological, so sorting the measurements elements in
+        ascending order is necessary
+
+        
+        Parameters
+        ----------
+        filepath: string
+            Path to the csv file
+
+        tminstr: string (optional)
+                String specifying the minimum time on the plot (default format dd-mm-yyyy)
+                
+        tmaxstr: string (optional)
+                String specifying the maximum time on the plot (default format dd-mm-yyyy)    
+                
+        settings : python object of data type 'dict' (optional)
+            An optional dictionary of settings       
+            
+            
+        datetimeformat: string (optional)
+                String specifying the date-time format (default format dd-mm-yyyy)       
+                 
+
+        
+    
+        Returns
+        -------
+        cls: Heads object
+            An instance of the Heads class
+            
+            
+        References
+        ---------
+        
+        Parsing using beautifullsoup is well explained in 
+        https://realpython.com/python-xml-parser/            
+
+        """
+
+
+        settings = settings
+        tmin = -1e9
+        tmax = +1e9
+        
+
+        if tminstr is not None:
+            tmin = datestring2num(tminstr, datetimeformat = datetimeformat)
+                        
+        if tmaxstr is not None:
+            tmax = datestring2num(tmaxstr, datetimeformat = datetimeformat)   
+              
+
+
+        with open(path_to_file, 'r') as f:
+            data = f.read()        
+            
+        
+        
+        gldsoup = BeautifulSoup(data, "xml")
+        # print('75 gldsoup.prettify()', gldsoup.prettify())
+        # input()
+        
+        monitoringPoint = gldsoup.find_all("ns4:monitoringPoint", limit=1)[0].text  
+        tubeNumber = gldsoup.find_all("tubeNumber", limit=1)[0].text 
+        
+        
+        gldbroId = gldsoup.find_all("broId", limit=1)[0].text
+        
+        gmwbroId = gldsoup.find_all("ns10:broId", limit=1)[0].text 
+        
+        url = "https://publiek.broservices.nl//gm/gmw//v1//objects//"+gmwbroId
+        	
+        
+        gmw = requests.get(url)
+        gmwsoup = BeautifulSoup(gmw.text)
+        # print(gmwsoup.prettify())
+    
+        
+        nitgcode = gmwsoup.find_all("nitgcode", limit=1)[0].text
+        gmwbroid = gmwsoup.find_all("brocom:broid", limit=1)[0].text
+        xy = gmwsoup.find_all("gml:pos", limit=1)[0].text
+        Xstr,Ystr = xy.split(' ')
+        
+        
+        crs = gmwsoup.find_all("gmwcommon:location", limit=100)
+        srsname = crs[0].get("srsname")
+        epsg = srsname.split('::')[-1]
+        
+        
+        X = float(Xstr)
+        Y =  float(Ystr)
+        
+        
+        ind = int(tubeNumber)-1
+        
+        groundlevelposition = gmwsoup.find_all("gmwcommon:groundlevelposition", limit=1)[ind].text
+        
+        screenlength = gmwsoup.find_all("screenlength", limit=1)[ind].text
+        screentopposition = gmwsoup.find_all("screentopposition", limit=1)[ind].text
+        screenbottomposition = gmwsoup.find_all("screenbottomposition", limit=1)[ind].text
+        plaintubepartlength = gmwsoup.find_all("gmwcommon:plaintubepartlength", limit=1)[ind].text
+        tubetopposition = gmwsoup.find_all("tubetopposition", limit=1)[ind].text
+        verticaldatum = gmwsoup.find_all("gmwcommon:verticaldatum", limit=1)[ind].text
+        localverticalreferencepoint = gmwsoup.find_all("gmwcommon:localverticalreferencepoint", limit=1)[ind].text
+        
+        
+        screentopposition = float(screentopposition)
+        screenbottomposition = float(screenbottomposition)
+        groundlevelposition = float(groundlevelposition)
+        Z = 0.5 * (screenbottomposition + screenbottomposition)        
+               
+        metadata = WellMetaData(name = nitgcode, X = X, Y = Y, Z = Z, surface_level = groundlevelposition, 
+                     screen_top = screentopposition, screen_bottom = screenbottomposition , screen_number= tubeNumber)                  
+                   
+        # first sort the measurements sequences chronologically (because they are not chronological in the BRO!)
+        observations_sequences_list = gldsoup.find_all("observation")
+        observations_sequences_indexes = np.empty((len(observations_sequences_list),2))
+        observations_sequences_indexes[:,0]=np.arange(0,len(observations_sequences_list))
+        j = -1
+        for observations_sequence in observations_sequences_list:
+            j = j+1
+            # firstpoint = observations_sequence.find("point")
+            firstpointtimestr = observations_sequence.find("time").text
+            datestr, timestr = firstpointtimestr.split('T')
+            timestr = timestr.split('+')[0]
+            reshaped_datetimestr = datestr+' '+timestr
+            dt = datetime.strptime(reshaped_datetimestr,'%Y-%m-%d %H:%M:%S')
+            timenum = date2num(dt)  
+            observations_sequences_indexes[j,1] = timenum
+            
+        b = np.argsort(observations_sequences_indexes[:,1])#sort from low to high
+        #b = b[::-1]#sort from high to low
+        sorted_observations_sequences_indexes = observations_sequences_indexes[b,:]
+        
+
+        records_list = []
+        
+        
+        c=-1
+        for i in range(0,len(observations_sequences_list)):#read the records time series records from ascii file
+            index = int(sorted_observations_sequences_indexes[i,0])
+            observations_sequence = observations_sequences_list[index]
+            
+            points = observations_sequence.find_all("point")
+            for j in range(0,len(points)):
+                point = points[j]
+                c += 1
+                if c%5000 == 0:
+                    print('158 c',c)
+            
+                datatimestr = point.find("time").text
+                #2021-01-10T00:00:00+01:00
+                value_str = point.find("value").text     
+                    
+                datestr, timestr = datatimestr.split('T')
+                timestr = timestr.split('+')[0]
+                reshaped_datetimestr = datestr+' '+timestr
+                dt = datetime.strptime(reshaped_datetimestr,'%Y-%m-%d %H:%M:%S')
+                time_num = date2num(dt)  
+                
+                value = float(value_str)
+                
+                records_list.append([time_num,value])    
+            
+        heads = np.array(records_list)
+        
+        mask = heads[:,1] < 1e9
+        heads = heads[mask]
+        
+        mask = (heads[:,0] > tmin) & (heads[:,0] < tmax)
+        heads = heads[mask]
+        
+        
+    
+            
+        #export to my own format for time series analysis
+        
+        Xstr = str('%8.2f' %X)
+        Ystr = str('%8.2f' %Y)
+        
+        
+        begin_date = num2date(heads[0,0])
+        begin_date_string= str(begin_date.day)+'-'+str(begin_date.month)+'-'+str(begin_date.year)
+        end_date=num2date(heads[-1,0])
+        end_date_string=str(end_date.day)+'-'+str(end_date.month)+'-'+str(end_date.year)        
+            
+        
+        header1 ='nitgcode,gmwbroid,gldbroId,geographical_system,X,Y,verticaldatum,begin date,end date'
+        header2 = nitgcode+','+ gmwbroid +','+gldbroId +','+'epsg: '+epsg+','+Xstr+','+Ystr+','+verticaldatum+','+begin_date_string+','+end_date_string
+        
+        
+        
+        abs_path = os.path.dirname(os.path.abspath(__file__))
+        abs_path_splitted = abs_path.split('\\')
+        path_to_parent_folder_elements = abs_path_splitted[:-1]
+        path_to_parent_folder = os.path.join(*path_to_parent_folder_elements)
+        splitted=path_to_parent_folder.split(':')#trick  to  repair  path
+        path_to_parent_folder = splitted[0]+':\\'+splitted[1]#trick  to  repair  path
+        path_to_resources_folder = os.path.join(path_to_parent_folder,'resources')
+        
+        
+        
+        if path_to_parent_folder is not None:
+            path_to_export_file =  os.path.join(path_to_parent_folder,gldbroId+'.txt')
+        else:
+            curdir = os.getcwd()
+            path_to_export_file = curdir+'//'+gldbroId+'.txt'
+        
+        F=open(path_to_export_file,'w')
+        F.write(header1+'\n')
+        F.write(header2+'\n')
+        F.write('\n')
+        F.write('Date(dd-mm-yyyy HH:MM:SS),water level (m NAP)\n')
+        for i in range(0,len(heads)):
+            t = num2date(heads[i,0])
+            value = heads[i,1]
+            record=str(t.day)+'-'+str(t.month)+'-'+str(t.year)+'  '+str(t.hour).zfill(2)+':'+str(t.minute).zfill(2)+':'+str(t.second).zfill(2)+','+str('%8.4f' %value)
+            F.write(record+'\n')
+        F.close()
+
+        return cls(name = metadata.name, X = X, Y = Y, Z = Z, metadata = metadata, 
+                   observed = heads, tminstr = tminstr, tmaxstr = tmaxstr, tminnum = tmin, tmaxnum = tmax, settings = settings) 
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     def generate_gxg(self,tminstr= None, tmaxstr = None, alpha = 0.05):
@@ -785,6 +1059,8 @@ class Heads(TimeSeriesBase):
             
     
         return glg,gg,ghg            
+    
+    
     
     
     def generate_groundwaterlevels_stats_string(self):
@@ -1517,8 +1793,8 @@ class Heads(TimeSeriesBase):
             
         
         if save_plot == True:
-            if self.name is not None:
-                figname = "plot_of_{}".format(self.name)
+            if plot_title is not None:
+                figname = "plot_of_{}".format(plot_title)
             else:
                 figname = "time_series_plot"
             try: 
@@ -1535,10 +1811,10 @@ class Heads(TimeSeriesBase):
                 curdir=os.getcwd()
                 savefig(curdir+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
                        
-        
+        return ax  
 
-            
-        return ax                                     
+
+                                   
 if __name__ == "__main__":
 
         
@@ -1552,7 +1828,7 @@ if __name__ == "__main__":
     path_to_parent_folder = os.path.join(*path_to_parent_folder_elements)
     splitted=path_to_parent_folder.split(':')#trick  to  repair  path
     path_to_parent_folder = splitted[0]+':\\'+splitted[1]#trick  to  repair  path
-    path_to_file_folder = os.path.join(path_to_parent_folder,'resources')
+    path_to_resources_folder = os.path.join(path_to_parent_folder,'resources')
     
     # # DINO
     # path_to_file=os.path.join(path_to_file_folder,'PB101-1_20230508165127.csv')
@@ -1567,19 +1843,40 @@ if __name__ == "__main__":
     tminstr = '01-01-1900 08:00:00'
     tmaxstr = '31-12-2100 08:30:00'
     
-    path_to_file = os.path.join(path_to_file_folder,'28AP0093_1.txt')
+    path_to_file = os.path.join(path_to_resources_folder,'28AP0093_1.txt')
     heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
     ax = heads.plot()
     harmonic = heads.harmonic_observed
-
+    
+    output_string = heads.generate_output(model_definition = None)
+    print('1852 output_string: ',output_string)    
+    
+    path_to_file = os.path.join(path_to_resources_folder,'HBpb001-1.csv')
+    path_to_file = os.path.join(path_to_resources_folder,'HBpb003-1.csv')
+    path_to_file = os.path.join(path_to_resources_folder,'HBpb004.csv')
+    heads = Heads.read_from_DINO(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr, artdiverformat = True )
 
     ax = heads.plot()
     ax = heads.plot_harmonics()
-    
-    
+
     
     output_string = heads.generate_output(model_definition = None)
-    print('1210 output_string: ',output_string)
+    print('1868 output_string: ',output_string)
     
-    print('1213 representer: ',repr(heads))
+    print('1870 representer: ',repr(heads))
+    
+    
+
+    path_to_file = os.path.join(path_to_resources_folder,'GLD000000014660_IMBRO.xml')
+    heads = Heads.read_from_BRO_GLD(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
+
+    ax = heads.plot()
+    ax = heads.plot_harmonics()
+
+    
+    output_string = heads.generate_output(model_definition = None)
+    print('1868 output_string: ',output_string)    
+    
+    
+    
     

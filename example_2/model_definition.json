@@ -2,8 +2,10 @@
     "db": {
         "funct_type": "constant",
         "fixed": true,
-        "mean_observed_heads_minus_mean_response": false,
-        "user_entered_value": 11.43
+        "equal_to_mean_observed_heads_minus_mean_response": false,
+        "default_initial_value": 0,
+        "equal_to_observed_heads_median": false,
+        "equal_to_mean_river_stage": false
     },
     "constrain_with_harmonics": [],
     "root_zone": {

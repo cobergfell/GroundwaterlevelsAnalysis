@@ -112,11 +112,19 @@ tmaxstr = '31-12-2000 00:00:00'
 path_to_file = os.path.join(path_to_resources_folder,'B39G0027001_1.csv')
 # path_to_file = os.path.join(path_to_resources_folder,'B39H0048001_1.csv')
 
-
-
-# heads = Heads.read_from_csv(path_to_file)
 # heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
 heads = Heads.read_from_DINO(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
+
+
+path_to_file = os.path.join(path_to_resources_folder,'HBpb001-1.csv')
+# path_to_file = os.path.join(path_to_resources_folder,'HBpb003-1.csv')
+# path_to_file = os.path.join(path_to_resources_folder,'HBpb004.csv')
+tminstr = '01-01-1900 00:00:00'
+tmaxstr = '31-12-2100 00:00:00'
+
+
+heads = Heads.read_from_DINO(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr, artdiverformat = True )
+
 heads.plot()
 
 glg,gg,ghg = heads.generate_gxg()

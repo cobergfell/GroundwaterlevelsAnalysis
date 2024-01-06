@@ -68,17 +68,14 @@ class ParametersLogistic:
     
     
     
-        
-
-    
-    
     def __init__(self, model_definition, stresses_dict = None, heads = None, settings = None):
-        
+
         self.model_definition = model_definition
         self.stresses_dict = stresses_dict
         self.heads = heads
         self.settings = settings
         self.p_dict = self.assemble_p()
+         
     
     def assemble_p(self):
         
@@ -203,11 +200,12 @@ class ParametersLogistic:
                                     if model_definition['db']['fixed'] == True:
                                         parameters_definition['db']['isvariable'] = False
                                         parameters_definition['db']['logtransform'] = False
-                                        parameters_definition['db']['initvalue'] = model_definition['db']['user_entered_value']
+                                        parameters_definition['db']['initvalue'] = model_definition['db']['default_initial_value']
                                         
-                                    if model_definition['db']['mean_observed_heads_minus_mean_response'] == True:
+                                    if model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] == True:
                                         parameters_definition['db']['isvariable'] = False   
                                         parameters_definition['db']['logtransform'] = False
+
                                     
                                 else:
                                     parameters_definition = {}
@@ -321,15 +319,17 @@ class ParametersLogistic:
                             elif component == 'noise':   
                                 if model_definition[component]['funct_type'] == 'residuals_decay_exponentially':
                                     componentsnames[component] = 'ResidualsDecayExponentially'
-                                    parameters_definition = ResidualsDecayExponentially().get_initial_parameters() 
+                                    parameters_definition = ResidualsDecayExponentially().get_initial_parameters()    
                                 else: 
                                     parameters_definition = {} 
                                     
+                                    
+                                if model_definition['noise']['model_residuals'] == False:
+                                    if 'alpha' in parameters_definition:
+                                        parameters_definition['alpha']['isvariable'] = False
                             else:
                                 parameters_definition = {}                                
-                                
-                                
-                                                                       
+                                  
 
                             for pname in parameters_definition:
 
@@ -438,11 +438,11 @@ class ParametersLogistic:
         p_dict["weightingfunctionsnames"] = weightingfunctionsnames
         p_dict["number_of_regimes"] = number_of_regimes
         
-        if model_definition['db']['mean_observed_heads_minus_mean_response'] == False:
-            if model_definition['db']['fixed'] == False:
-                if (self.stresses_dict is not None) & (self.heads is not None):
-                    p_dict = self.initialize_db(p_dict, self.stresses_dict, self.heads)
-                self.p_dict = p_dict
+        if model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] == False:
+            # if model_definition['db']['fixed'] == False:
+            if (self.stresses_dict is not None) & (self.heads is not None):
+                p_dict = self.initialize_db(p_dict, self.stresses_dict, self.heads)
+            self.p_dict = p_dict
                 
         # print('447 check p_dict',p_dict)
         # input()
@@ -457,17 +457,38 @@ class ParametersLogistic:
 
         model_definition = self.model_definition
 
+
         if 'db' in p_dict['p_indexes']:
+
+            # solve conflicts
+            if 'riv' in stresses_dict:
+                if model_definition['db']['equal_to_mean_river_stage'] == True:
+                    model_definition['db']['equal_to_observed_heads_median'] = False
+
             if model_definition['db']['funct_type'] == 'constant':
                 index_db = p_dict['p_indexes']['db']['regime_1']['basicparam'][0]
-                if model_definition['db']['initial_value_from'] == 'observed_heads_median':  
+                if model_definition['db']['equal_to_observed_heads_median'] == True:
                     db = np.median(heads.observed[:,1])
-                    
+
                 elif 'user_entered_value' in model_definition['db']:
                     db = model_definition['db']['user_entered_value']
-                else:
-                    db = 5. #default value
+
+                elif model_definition['db']['equal_to_mean_river_stage'] == True:
+
+                    if 'riv' in stresses_dict:
+                        keys = stresses_dict['riv'].keys()
+                        db_list = []
+                        for key in keys:
+                            db = np.mean(stresses_dict['riv'][key].interpolated[:,1]) 
+                            db_list.append(db)
+                        db = np.mean(db_list)  
+                    else:
+                        pass
                     
+                else:
+                    db = model_definition['db']['default_initial_value']
+
+        
                 for stress_type in ['prec','evap','pump','riv']:
                     if stress_type in model_definition:
                         if 'use_normalized_time_series' in model_definition[stress_type] :
@@ -483,11 +504,14 @@ class ParametersLogistic:
                                         elif stress_type == 'pump':
                                             scale_factor = -1e-3    
                                         elif stress_type == 'riv':
-                                            scale_factor = 1.0
-            
+                                            if model_definition['db']['equal_to_mean_river_stage'] == True:
+                                                scale_factor = 0
+                                            elif model_definition['db']['equal_to_observed_heads_median'] == True:
+                                                scale_factor = 0                                                
+                                            else:
+                                                scale_factor = 1.
                                         db += np.mean(stress[:,1])*scale_factor
 
-                
                 db_min = db - 2.
                 db_max = db + 1.
                 if p_dict['logtransform'][index_db] == True:

@@ -159,6 +159,10 @@ preprocessed = Preprocessed(heads = heads_list,stresses_dict = stresses_dict, ti
     
 time = preprocessed.time
 heads = preprocessed.heads
+time = preprocessed.time
+time_step = preprocessed.time_step
+time_step_targets = preprocessed.time_step_targets
+
 
 stresses_dict = preprocessed.stresses_dict 
 Nint_dict = preprocessed.Nint_dict

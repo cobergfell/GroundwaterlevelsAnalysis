@@ -1,0 +1,33 @@
+{
+    "db": {
+        "funct_type": "constant",
+        "fixed": true,
+        "mean_observed_heads_minus_mean_response": false,
+        "user_entered_value": 11.43
+    },
+    "constrain_with_harmonics": [],
+    "root_zone": {
+        "funct_type": "vangenuchten",
+        "apply_root_zone": false
+    },
+    "prec": {
+        "funct_type": "floodwavemodel2L_typeI",
+        "number_of_regimes": 1,
+        "weighting": "sigmoid",
+        "use_normalized_time_series": false
+    },
+    "evap": {
+        "funct_type": "floodwavemodel2L_typeI",
+        "number_of_regimes": 1,
+        "weighting": "prec",
+        "use_normalized_time_series": false
+    },
+    "riv": {
+        "funct_type": "floodwavemodel2L_typeI",
+        "use_normalized_time_series": true
+    },
+    "noise": {
+        "funct_type": "residuals_decay_exponentially",
+        "model_residuals": true
+    }
+}

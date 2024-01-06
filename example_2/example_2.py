@@ -152,8 +152,6 @@ filepath = os.path.join(mydir,'model_definition.json')
 md = ModelDefinition().from_jason(filepath=filepath) # case 3: model definition specified in json json file in filepath
 
 
-parametersLogistic = ParametersLogistic(md,stresses_dict = stresses_dict, heads = _heads)
-p_dict = parametersLogistic.assemble_p()
 
 
 preprocessed = Preprocessed(heads = heads_list,stresses_dict = stresses_dict, time_step = time_step,
@@ -162,6 +160,9 @@ preprocessed = Preprocessed(heads = heads_list,stresses_dict = stresses_dict, ti
     
 time = preprocessed.time
 heads = preprocessed.heads
+time_step = preprocessed.time_step
+time_step_targets = preprocessed.time_step_targets
+
 
 for _heads in heads:
 
@@ -175,13 +176,24 @@ settings = {}
 settings['all_piezometers_share_same_model'] = True
 
 
+parametersLogistic = ParametersLogistic(md,stresses_dict = stresses_dict, heads = _heads)
+p_dict = parametersLogistic.assemble_p()
+
+
+
 potimizer = Poptimizer(heads = heads, time = time, p_dict = p_dict, time_step = time_step, time_step_targets = time_step_targets,
                         stresses_dict = stresses_dict, model_residuals = True, model_definition = md,
                         Nint_dict = Nint_dict, settings = settings,
-                        analytical_jacobian = True, maxiter = 25)    
+                        analytical_jacobian = True, maxiter = 5)    
 
 
-popt, pcov, pcor, pstdev, p_dict, expvar, expvarnoise  = potimizer.poptimizer_home_brew()    
+popt, pcov, pcor, pstdev, p_dict, expvar, expvarnoise  = potimizer.poptimizer_home_brew(delta = 0.1)  
+
+# to reproduce approximately the results of paper 2, set  maxiter=5 in Poptimizer and delta=0.1  in poptimizer_home_brew()
+# but: this leads to a sub optimum, a fact I was not aware of at the time of the paper, however, it does not change the message of the paper and
+# the fact that L is underestimated does not change the conclusion of the paper (in factt, we had already commented on th efact that the value of L
+# was not important for the rest of the paper)
+# To find what appears as the global optimum set  maxiter1=19 (or more) in Poptimizer and set poptimizer_home_brew(delta=2.0)
 
 
 for _heads in heads:

@@ -132,7 +132,7 @@ def export_heads_nparray_to_ascii(tseries, metadata = None, path = None, plot = 
     for i in range(0,len(tseries)):
         t = num2date(tseries[i,0])
         value = tseries[i,1]
-        record = str(t.day)+'-'+str(t.month)+'-'+str(t.year)+'  '+str(t.hour).zfill(2)+':'+str(t.minute).zfill(2)+':'+str(t.second).zfill(2)+','+str(value)
+        record = str(t.day).zfill(2)+'-'+str(t.month).zfill(2)+'-'+str(t.year)+'  '+str(t.hour).zfill(2)+':'+str(t.minute).zfill(2)+':'+str(t.second).zfill(2)+','+str('%8.4f' %value)
         F.write(record+'\n')
     F.close()
 
