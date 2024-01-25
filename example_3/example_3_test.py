@@ -142,6 +142,27 @@ heads = preprocessed.heads
 time_step_targets = preprocessed.time_step_targets
 
 stresses_dict = preprocessed.stresses_dict 
+keys1 = list(stresses_dict.keys())
+keys2 = list(stresses_dict['prec'].keys())
+s= stresses_dict['prec'][keys2[0]] 
+hc=s._harmonic_observed
+print('149 len prec.__observed',len(s._observed))
+print('150 len prec._harmonic_observed date_begin',len(hc.harmonic_component))
+timenum_begin = hc.harmonic_component[0,0]
+timenum_end = hc.harmonic_component[-1,0]
+date_begin= num2date(timenum_begin)
+date_end= num2date(timenum_end)
+print('153 prec._harmonic_observed date_begin',date_begin)
+print('154 prec._harmonic_observed date_end',date_end)
+hc=s._harmonic_interpolated
+timenum_begin = hc.harmonic_component[0,0]
+timenum_end = hc.harmonic_component[-1,0]
+date_begin= num2date(timenum_begin)
+date_end= num2date(timenum_end)
+print('153 prec.__harmonic_interpolated date_begin',date_begin)
+print('154 prec._harmonic_interpolated date_end',date_end)
+
+
 
 Nint_dict = preprocessed.Nint_dict
 all_data_for_neural_networks = preprocessed.all_data_for_neural_networks

@@ -28,7 +28,7 @@ from modeldefinition import ModelDefinition
 from modelnoise import ResidualsDecayExponentially
 from utilities import p_dict_copy
 from harmonics import Harmonics
-from harmonics_toolkit import *
+from harmonics_toolskit import *
 from preprocessedseries import Preprocessed
 from jacobian import Jacobian
 from simulation import Simulation

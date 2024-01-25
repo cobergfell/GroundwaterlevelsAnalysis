@@ -170,8 +170,7 @@ def non_linear_equations1(trial_solution,w,A,a,p_dict, stresses_dict, heads):
     phi_h = heads.harmonic_observed.phase_shift[0]
     phi_evap = stresses_dict['evap'][evap_tseries_name].harmonic_observed.phase_shift[0]
     phi_prec = stresses_dict['prec'][prec_tseries_name].harmonic_observed.phase_shift[0]    
-    
- 
+     
     damping_term_Kees = func_Kees1(w,a,n)
     timelag_Kees = func_Kees2(w,a,n)
     
@@ -278,6 +277,14 @@ def non_linear_equations2(trial_solution,p_dict, stresses_dict, heads):
           f = np.exp(f)   
 
           
+    # Ampl_h = heads.harmonic_observed.amplitude[0]
+    # Ampl_evap = stresses_dict['evap'][evap_tseries_name].harmonic_observed.amplitude[0]
+    # Ampl_prec = stresses_dict['prec'][prec_tseries_name].harmonic_observed.amplitude[0]
+    # phi_h = heads.harmonic_observed.phase_shift[0]
+    # phi_evap = stresses_dict['evap'][evap_tseries_name].harmonic_observed.phase_shift[0]
+    # phi_prec = stresses_dict['prec'][prec_tseries_name].harmonic_observed.phase_shift[0]  
+
+
     Ampl_h = heads.harmonic_interpolated.amplitude[0]
     Ampl_evap = stresses_dict['evap'][evap_tseries_name].harmonic_interpolated.amplitude[0]
     Ampl_prec = stresses_dict['prec'][prec_tseries_name].harmonic_interpolated.amplitude[0]
@@ -288,6 +295,50 @@ def non_linear_equations2(trial_solution,p_dict, stresses_dict, heads):
     D_prec = func_Kees1(w,a,n) #damping term Kees Maas PREC and EVAP
     
     TL_prec = func_Kees2(w,a,n)  #time lag Kees Maas PREC and EVAP
+    
+    
+    from datetime import datetime
+    from matplotlib.dates import date2num, num2date
+    
+    
+    hc = heads.harmonic_interpolated
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_end = hc.harmonic_component[-1,0]
+    date_begin= num2date(timenum_begin)
+    date_end= num2date(timenum_end)
+    print('345 heads.harmonic_interpolated date_begin',date_begin)
+    print('346 heads._harmonic_interpolated date_end',date_end)    
+    print('347 Ampl_h',Ampl_h) 
+    print('348 phi_h',phi_h) 
+    
+    
+    hc = stresses_dict['prec'][prec_tseries_name].harmonic_interpolated
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_end = hc.harmonic_component[-1,0]
+    date_begin= num2date(timenum_begin)
+    date_end= num2date(timenum_end)
+    print('357 prec._harmonic_interpolated date_begin',date_begin)
+    print('358 prec._harmonic_interpolated date_end',date_end)
+    print('359 Ampl_prec',Ampl_prec) 
+    print('360 phi_prec',phi_prec)     
+    
+    
+    
+    
+    hc = stresses_dict['evap'][evap_tseries_name].harmonic_interpolated
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_begin = hc.harmonic_component[0,0]
+    timenum_end = hc.harmonic_component[-1,0]
+    date_begin= num2date(timenum_begin)
+    date_end= num2date(timenum_end)
+    print('371 evap._harmonic_interpolated date_begin',date_begin)
+    print('372 evap._harmonic_interpolated date_end',date_end)
+    print('373 Ampl_evap',Ampl_evap) 
+    print('374 phi_evap',phi_evap)      
+    input()    
+    
           
 
     if 'pump' in stresses_dict:

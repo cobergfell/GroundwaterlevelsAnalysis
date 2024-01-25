@@ -90,8 +90,11 @@ class Stress(TimeSeriesBase):
     def __repr__(self):
         
         """String representation of the stress."""
-        string = f'Stress type: {self.stress_type}\n'
-        string += f'Stress name:{self.name}'
+        string = f'class: {self.__class__.__name__}\n'
+        string += f'stress_type: {self.stress_type}\n'
+        string += f'name: {self.name}\n'
+        string += f'attributes: {list(self.__dict__.keys())}'
+        
         return string
           
            
