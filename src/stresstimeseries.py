@@ -47,6 +47,10 @@ class Stress(TimeSeriesBase):
         When the response function is a multi-layer groundwater flow model, L indicates the 
         layer number, with 0 corresponding to the top layer
         
+        
+    multiply_values_by  float 
+         A multiplying factor for the stress value (to be used to transform cm in meters for example)
+        
     Methods
     -------
     read_from_csv(filepath = None,tminstr = None, tmaxstr = None, settings = None)
@@ -59,7 +63,7 @@ class Stress(TimeSeriesBase):
              
     def __init__(self, name = None, X = None, Y = None, Z = None, L = None, observed = None,
                  tminstr = None, tmaxstr = None, tminnum = None, tmaxnum = None, cumulative = True, 
-                 stress_type = None, settings = None, metadata = None):
+                 stress_type = None, settings = None, metadata = None, multiply_values_by = 1.):
 
 
             TimeSeriesBase.__init__(self, observed = observed, name = name, settings = settings, 
@@ -83,7 +87,8 @@ class Stress(TimeSeriesBase):
             self.tmin = tminnum
             self.tmax = tmaxnum
             self.tminstr = tminstr
-            self.tmaxstr = tmaxstr            
+            self.tmaxstr = tmaxstr          
+            self.multiply_values_by = multiply_values_by
             
 
 
@@ -114,7 +119,8 @@ class Stress(TimeSeriesBase):
     
            
     @classmethod      
-    def read_from_csv(cls ,filepath, tminstr = None, tmaxstr = None, settings = None, stress_type = None, cumulative = None):
+    def read_from_csv(cls ,filepath, tminstr = None, tmaxstr = None, settings = None, stress_type = None, cumulative = None, 
+                      datetimeformat =None, multiply_values_by = 1.):
         
         
         
@@ -176,7 +182,9 @@ class Stress(TimeSeriesBase):
         #read the header line and collect the metadata in a dictionary (a dictionnary is a Python data type)
         header_line = all_lines[1]
         header_line_splited = header_line.rstrip().split(',')
-
+        if len(header_line_splited) < 2:
+            header_line_splited = header_line.rstrip().split(';')        
+        
         metadata = {}
         metadata['type'] = stress_type
         name = header_line_splited[1]
@@ -213,31 +221,41 @@ class Stress(TimeSeriesBase):
         # if stress_type in ['prec','evap']:
         #     formatt = '%m/%d/%Y %H:%M'
         # else:
-        #     formatt = '%d-%m-%Y %H:%M'                                                                                                                                                                                                                       
+        #     formatt = '%d-%m-%Y %H:%M'              
+
+        
+        if datetimeformat is None:
+            datetimeformat = '%d-%m-%Y %H:%M:%S'            
+        
+        
         for i in range(0,N_data):#read the records time series records from ascii file
-            j=i+N_lines_to_skip
-            data_line=all_lines[j].rstrip().split(',')
-            date_time_string=data_line[0]
-            value_str=data_line[1] 
-            dt=datetime.strptime(date_time_string,'%d-%m-%Y %H:%M')
-            # dt=datetime.strptime(date_time_string,'%m/%d/%Y %H:%M')
-            time_num=date2num(dt)    
-            # dt=datetime.strptime(date_time_string,formatt)
-            time_num=date2num(dt)            
+            j = i+N_lines_to_skip
+            data_line = all_lines[j].rstrip().split(',')
+            if len(data_line) < 2:
+                data_line = all_lines[j].rstrip().split(';')
+            try:
+                # dt=datetime.strptime(data_line[0],'%d-%m-%Y %H:%M:%S')
+                # dt=datetime.strptime(data_line[0],'%d-%m-%Y %H:%M')
+                # time_num=date2num(dt)  
+                time_num = datestring2num(data_line[0], datetimeformat = datetimeformat)
+            except :
+                logger.warning("Date-time format not recognized")            
             
+            value_str = data_line[1]     
             # time_num = datestring2num(date_time_string) # this is slow! beter to uncheck the two lines above
             tseries[i,0]=time_num#time numerical value
-            tseries[i,1]=float(value_str)#string to float for measured groundwater level
+            tseries[i,1]=float(value_str)*multiply_values_by#string to float for measured groundwater level
             
         mask = (tseries[:,0] > tmin) & (tseries[:,0] < tmax)
-        tseries = tseries[mask]            
+        tseries = tseries[mask]   
 
         #return cls(tseries,metadata=metadata)           
         # return cls(path_to_filepath, observed = tseries,stress_type = stress_type, settings = settings, metadata=metadata) 
 
         return cls(name = metadata['name'], X = float(metadata['X']), Y = float(metadata['Y']), Z = Z, 
                    metadata = metadata, observed = tseries, tminstr = tminstr, tmaxstr = tmaxstr, 
-                   tminnum = tmin, tmaxnum = tmax, settings = settings, stress_type = stress_type, cumulative = cumulative)        
+                   tminnum = tmin, tmaxnum = tmax, settings = settings, stress_type = stress_type, 
+                   cumulative = cumulative, multiply_values_by = multiply_values_by)        
     
      
 

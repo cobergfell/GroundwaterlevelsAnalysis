@@ -52,7 +52,7 @@ from modeldefinition import ModelDefinition
 from modelnoise import ResidualsDecayExponentially
 from utilities import p_dict_copy
 from harmonics import Harmonics
-from harmonics_toolkit import *
+from harmonics_toolskit import *
 from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca,close
 from preprocessedseries import Preprocessed
 from jacobian import Jacobian

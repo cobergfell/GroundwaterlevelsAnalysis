@@ -88,7 +88,7 @@ class ModelDefinition:
     
     For pumping
     1. model_definition['pump'] = 'incomplete_gamma' : pumping modeled with incomplete_gamma
-    2. model_definition['pump'] = 'hantush' : pumping modeled with hantush well function
+    2. model_definition['pump'] = 'Hantush' : pumping modeled with hantush well function
     
     For riv
     1. model_definition['riv'] = 'incomplete_gamma' : pumping modeled with incomplete_gamma
@@ -100,76 +100,10 @@ class ModelDefinition:
     1. model_definition['noise'] = 'residuals_decay_exponentially' : residuals decay exponentialy with time        
         
     """    
-    
-    
-    
-    
 
     
     def __init__(self, working_directory  = None, read_from_resources = False):
 
-
-        model_definition = {}
-        model_definition['db'] = {}
-        model_definition['db']['funct_type'] = 'constant'
-        model_definition['db']['fixed'] = False # True
-        
-        # model_definition['db']['mean_observed_heads_minus_mean_response'] = True #False # overrules model_definition['db']['fixed']
-        # if model_definition['db']['mean_observed_heads_minus_mean_response'] == False:
-        #     if model_definition['db']['fixed'] == True:
-        #         model_definition['db']['user_entered_value'] = 11.43  # this is just an example used in example 2
-        #     else:
-        #         model_definition['db']['initial_value_from'] = 'observed_heads_median'
-
-        model_definition['db']['equal_to_mean_observed_heads_minus_mean_response'] = False #True 
-        model_definition['db']['default_initial_value'] = 0 # 11.43
-        model_definition['db']['equal_to_observed_heads_median'] = False
-        model_definition['db']['equal_to_mean_river_stage'] = False
-                
-        model_definition['constrain_with_harmonics'] = [] # ['prec','evap'] #    
-
-        model_definition['root_zone'] = {}
-        model_definition['root_zone']['funct_type'] = 'vangenuchten'
-        model_definition['root_zone']['apply_root_zone'] = False #True
-
-        # model_definition['prec'] = {}
-        # model_definition['prec']['funct_type'] = 'incomplete_gamma'
-        # model_definition['prec']['number_of_regimes'] = 1 # if > 1, response will be weighted and superposed
-        # model_definition['prec']['weighting'] = 'sigmoid'
-        
-        model_definition['prec'] = {}
-        model_definition['prec']['funct_type'] = 'incomplete_gamma' #'floodwavemodel2L_typeI'
-        model_definition['prec']['number_of_regimes'] = 1 # if > 1, response will be weighted and superposed
-        model_definition['prec']['weighting'] = 'sigmoid'        
-        model_definition['prec']['use_normalized_time_series'] = False # if true then add mean stress to the drainage base
-        
-        
-        
-        if model_definition['root_zone']['apply_root_zone'] == True: # resolve incompatibility of options
-            model_definition['constrain_with_harmonics'] = []
-        
-        model_definition['evap'] = {} 
-        model_definition['evap']['funct_type'] = 'incomplete_gamma_f'
-        # model_definition['evap']['funct_type'] = 'floodwavemodel2L_typeI'
-        model_definition['evap']['use_normalized_time_series'] = False# if true then add mean stress to the drainage base
- 
-        # model_definition['pump'] = {} 
-        # # model_definition['pump']['funct_type'] = 'incomplete_gamma'
-        # model_definition['pump']['funct_type'] = 'Hantush'
-        # model_definition['pump']['given_as_pumping_rate'] = True #
-                   
-                   
-        # model_definition['riv'] = {} 
-        # # model_definition['riv']['funct_type'] = 'incomplete_gamma'
-        # model_definition['riv']['funct_type'] = 'floodwavemodel2L_typeI'
-        # model_definition['riv']['use_normalized_time_series'] = True# if true then add mean stress to the drainage base
-        
-        model_definition['noise'] = {} 
-        model_definition['noise']['funct_type'] = 'residuals_decay_exponentially'            
-        model_definition['noise']['model_residuals'] = False #True # #noise can also be switched off in simulations options
-
-        
-        
         if working_directory == None:
             #curdir=os.getcwd()
             abs_path = os.path.dirname(os.path.abspath(__file__))
@@ -178,27 +112,40 @@ class ModelDefinition:
             working_directory = os.path.join(*working_directory_elements)
             splitted = working_directory.split(':') # trick to repair path
             working_directory = splitted[0]+':\\'+splitted[1] # trick to repair path
-    
-        if read_from_resources == True: # overrules above defined model definition
-            try:
-                mydir = os.path.join(working_directory,'resources')
-                filepath = os.path.join(mydir,'model_definition.json')
-                
-                fp = open(filepath,'r')
-                model_definition = json.load(fp)
-                fp.close()              
-            except FileNotFoundError:
-                message = (f'\n\nFilepath {filepath} does not exist\n')
-                logger.warning(message)               
 
-        memory_dict = {'prec':365*7,
-                      'evap':365*7,
-                      'riv':7,
-                      'pump':365*7,
-                      'noise':365*2}        
-  
+
+        filepath = os.path.join(working_directory,'model_options.json')
+                
+        # try:
+
+            
+        #     fp = open(filepath,'r')
+        #     model_options = json.load(fp)
+        #     fp.close()              
+        # except FileNotFoundError:
+        #     message = (f'\n\nFilepath {filepath} does not exist\n')
+        #     logger.warning(message)          
+                
+        #     mydir = os.path.join(working_directory,'resources')
+        #     filepath = os.path.join(mydir,'model_options.json')
+            
+        #     fp = open(filepath,'r')
+        #     model_options = json.load(fp)
+        #     fp.close()                     
+                   
+        # if model_options['root_zone']['apply'] == True: # resolve incompatibility of options
+        #     model_options['constrain_with_harmonics'] = False            
+
+
+
+        memory_dict = {'prec':365*2,
+                      'evap':365*2,
+                      'riv':365,
+                      'pump':365,
+                      'noise':365}        
+    
+    
         self.working_directory = working_directory 
-        self._model_definition = model_definition     
         self._memory_dict = memory_dict
             
           
@@ -280,19 +227,18 @@ class ModelDefinition:
                 with open(filepath, 'w') as fp:
                     json.dump(self._model_definition, fp, indent=4)  
                     
-            
 
-    
     
     def from_jason(self,filepath=None):
         """ read model settings  from json text files"""
+
 
         import json
         if isinstance(filepath,str):
             try:
                 # filepath = os.path.join(dirpath,'model_definition.json')
                 fp = open(filepath,'r')
-                model_definition = json.load(fp)
+                model_options = json.load(fp)
                 fp.close() 
                 
             except FileNotFoundError:
@@ -303,11 +249,27 @@ class ModelDefinition:
                 message = (f'\nIn class {clsname} of module {modulename}.py: '
                            f'Filepath {filepath} does not exist.\n')                          
                 logger.warning(message)   
-                model_definition = None                         
-
+                model_definition = None            
+      
+        model_definition = {}
+        keys = list(model_options.keys())
+        for key in keys:
+            subdic = model_options[key]
+            if subdic["apply"] is True:
+                contribution_name = subdic['contribution_name']
+                model_definition[contribution_name] = subdic
+        self.model_definition = model_definition                    
+  
         return model_definition
         
-        
+    
+        model_definition = self.from_jason(filepath)
+        self._model_definition = model_definition         
+   
+    
+   
+    
+   
                                   
 if __name__ == "__main__":
  

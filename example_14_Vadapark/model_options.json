@@ -1,0 +1,114 @@
+{
+    "1": {  "contribution_type": "constrain_with_harmonics",
+            "stresses_list": ["prec","evap"],
+            "apply": false
+        },   
+        
+    "2": {  "contribution_type": "root_zone",
+            "funct_type": "vangenuchten",
+            "apply": false
+        },           
+
+    "3": {
+        "contribution_type": "drainage_base",
+        "contribution_name": "db",
+        "funct_type": "constant",
+        "equal_to_mean_observed_heads_minus_mean_response": false,
+        "default_initial_value": 0,
+        "equal_to_observed_heads_median": true,
+        "equal_to_mean_river_stage": false,
+        "fixed": false,
+        "apply": true    
+    },
+    
+    "4": {
+        "contribution_type": "linear_trend",
+        "contribution_name": "lintrend",
+        "direction": "downwards",
+        "tminstr": "01-01-1900",       
+        "tmaxstr": "31-12-2100",        
+        "fit_linear_trend_to_observations": false,       
+        "apply": false
+    },    
+
+    
+    "5": {
+        "contribution_type": "stressor",
+        "contribution_name": "prec",  
+        "funct_type": "incomplete_gamma",
+        "number_of_regimes": 1,
+        "weighting": "sigmoid",
+        "use_normalized_time_series": false,
+        "apply": true
+    },
+    
+    "6": {
+        "contribution_type": "stressor",
+        "contribution_name": "prec",    
+        "funct_type": "floodwavemodel2L_typeI",
+        "number_of_regimes": 1,
+        "weighting": "sigmoid",
+        "use_normalized_time_series": false,
+        "apply": false
+    },    
+
+    "7": {
+        "contribution_type": "stressor",
+        "contribution_name": "evap",        
+        "funct_type": "incomplete_gamma_f",
+        "number_of_regimes": 1,
+        "weighting": "sigmoid",
+        "use_normalized_time_series": false,
+        "apply": true
+    },
+     
+    "8": {
+        "contribution_type": "stressor",
+        "contribution_name": "evap",          
+        "funct_type": "floodwavemodel2L_typeI",
+        "number_of_regimes": 1,
+        "weighting": "sigmoid",
+        "use_normalized_time_series": false,
+        "apply": false
+    },    
+    
+    "9": {
+        "contribution_type": "stressor",
+        "contribution_name": "pump",       
+        "funct_type": "incomplete_gamma",
+        "given_as_pumping_rate": true,
+        "apply": false
+    },      
+   
+    "10": {
+        "contribution_type": "stressor",
+        "contribution_name": "pump",      
+        "funct_type": "Hantush",
+        "given_as_pumping_rate": true,
+        "apply": false
+    },     
+   
+    "11": {
+        "contribution_type": "stressor",
+        "contribution_name": "riv",    
+        "funct_type": "incomplete_gamma",
+        "use_normalized_time_series": true,
+        "apply": true
+    },      
+    
+    
+    "12": {
+        "contribution_type": "stressor",
+        "contribution_name": "riv",     
+        "funct_type": "floodwavemodel2L_typeI",
+        "use_normalized_time_series": true,
+        "apply": false
+    },       
+    
+    "13": {
+        "contribution_type": "noise",
+        "contribution_name": "noise_model",      
+        "funct_type": "exponential_decay",
+        "apply": false
+    }
+}

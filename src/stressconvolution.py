@@ -240,7 +240,7 @@ class StressConvolution:
         
         pnumber = self.pnumber
         
-        respfunctclassname = p_dict['componentsnames'][stress_type]       
+        respfunctclassname = p_dict['contributionsnames'][stress_type]       
         p_indexes = p_dict['p_indexes']
         weightingfunctionsnames = p_dict["weightingfunctionsnames"]
         Nregimes = p_dict["number_of_regimes"][stress_type]

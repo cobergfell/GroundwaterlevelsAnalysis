@@ -9,7 +9,7 @@ import scipy
 import numpy as np
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from preprocessedseries import Preprocessed
+# from preprocessedseries import Preprocessed
 from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca,close
 from scipy import integrate
 from logging import getLogger
@@ -17,6 +17,7 @@ from floodwave import (Stehfest_weights,
                        step_prec_floodwave_model,
                        step_riv_floodwave_model_bc_type_1,
                        step_riv_floodwave_model_bc_type_2)
+
 
 
 logger = getLogger(__name__)
@@ -110,7 +111,6 @@ class UnitResponseFunctionsParent(UnitResponseFunctionsAbstract):
         self.Nint = Nint
         self.time_step = time_step
         self.arguments_dict = arguments_dict
-        self.stress_type = stress_type
         self.pnumber = pnumber
         self.t = t
 
@@ -203,6 +203,123 @@ class UnitResponseFunctionsParent(UnitResponseFunctionsAbstract):
         
                   
         return block 
+
+
+###debut des travaux
+    def plotblockfunction(self,p ,logtransform): 
+
+        """ 
+        Method to plot a block function 
+     
+        Parameters
+        ----------
+        p: array of floats
+            the parameter vector
+            
+        logtransform: array of booleans
+            vector of booleans values indicating if a parameter is logtransformed   
+
+
+        Return
+        ----------
+        output: numpy array_like  
+            output is either the block function of its partial derivatives
+
+         """
+        time_step = self.time_step
+        step = self.stepfunction(p ,logtransform)
+        
+
+        block = np.empty(len(step)-1)
+        block[:] = step[0:-1]
+        block[1:] = block[1:] - block[:-1]
+        block[:] = block[:] / time_step #  to keep block magnitude to one
+        
+        t = np.arange(0, len(block), time_step)       
+
+
+ 
+        left_margin=0.12
+        right_margin=0.06
+        top_margin=0.05
+        bottom_margin=0.14
+        dy=0.05
+        dx=0.05
+    
+        nl = 1 #number of rows
+        nc = 1 #number of columns
+        plot_length = (1-left_margin-right_margin-dx)/nc
+        plot_height = (1-bottom_margin-top_margin-2*dy)/nl
+        x1 = left_margin
+        x2 = x1+plot_length+dx # in case of double columns 
+        X = [x1,x2,x1,x2,x1,x2,x1,x2]#list of x coordinates of bottom left corners
+        y1 = 1-top_margin-plot_height
+        y2 = y1-plot_height-dy # in case of 2 rows
+        y3 = y2-plot_height-dy # in case of 3 rows
+        y4 = y3-plot_height-dy # in case of 4 rows
+        Y = [y1,y1,y2,y2,y3,y3,y4,y4]#list of x coordinates of bottom left corners    
+        
+        
+        fig=figure(num=None, figsize=(8,8),dpi=50,facecolor='w', edgecolor='k')#figures with all plots in a colomn
+        #ax = fig.add_subplot(111)
+        ax=fig.add_axes([X[0],Y[0],plot_length,plot_height],frameon=True, xscale=None, yscale=None)    #where rect=[left, bottom, width, height] in normalized (0,1) units. axisbg is the background color for the axis, default white
+    
+                
+        ax.plot(t,block,'b-')
+
+        # legend_list = []
+        # ax.plot_date(tseries[:,0],tseries[:,1],'b')
+        # legend_list.append(tseriesname)
+         
+         
+        
+        # def format_pump_rate(x):
+        #     return '%1.0f' % (x*1e-3)
+         
+        # def format_date(dates, pos=None):
+        #     return num2date(dates).strftime('%d-%m-%Y')
+        
+        # def format_date(dates, pos=None):
+        #     return num2date(dates).strftime('%Y')
+        
+        fs = 10
+        ax.set_ylabel('head (m above datum)',fontsize=fs)
+        ax.set_xlabel('time (days)',fontsize=fs,ha='center')
+                       
+        title = 'Block response function of '+ self.stress_type
+        ax.set_title(title,fontsize=fs)
+        
+        
+        (x, y) = ax.title.get_position()
+        ax.title.set_y(0.87 * y)    
+         
+        # ax.grid(True)
+        
+        # # ax.fmt_xdata = DateFormatter('%Y-%m-%d')                        # %H:%M:%S
+        # # fig.autofmt_xdate()
+        
+                        
+         
+         
+        # ax.annotate('Legend', xy=(0.05, -0.15), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+        # leg = ax.legend((legend_list), ncol=3,shadow=False,bbox_to_anchor=[0.045, -0.25], loc='lower left',frameon=False)
+        # ltext  = leg.get_texts() 
+        # plt.setp(ltext, fontsize=fs)    # the legend text fontsize
+         
+        # show()
+        # curdir=os.getcwd()
+        # #savefig(curdir+'\\simulations', dpi=None, facecolor='w', edgecolor='w',orientation='portrait', papertype=None, format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
+         
+
+        
+        
+        return ax
+    
+    
+    
+### fin des travaux
+    
+    
  
 
     def functionmoments(self, p ,logtransform): 
@@ -273,7 +390,7 @@ class IncompleteGamma(UnitResponseFunctionsParent):
                     "pname": pname,
                     "minvalue": 50.,
                     "maxvalue": 4000.,
-                    "initvalue": 1300., 
+                    "initvalue": 1000., 
                     }                    
                 
                 pname = "a" + suffix
@@ -315,7 +432,7 @@ class IncompleteGamma(UnitResponseFunctionsParent):
                     "pname": pname,
                     "minvalue": 1e-5,#1e-4,
                     "maxvalue": 1e-2,
-                    "initvalue": 0.002
+                    "initvalue": 0.005
                     
                     }                   
                     
@@ -379,9 +496,9 @@ class IncompleteGamma(UnitResponseFunctionsParent):
                 "isvariable": True,
                 "logtransform": True,
                 "pname": pname,
-                "minvalue": 1.00E-3,
-                "maxvalue": 2.,
-                "initvalue": 0.85, 
+                "minvalue": 1.00E-2,
+                "maxvalue": 1.,
+                "initvalue": 0.95, 
                 }                    
             
             pname = "a" + suffix
@@ -1252,8 +1369,7 @@ if __name__ == "__main__":
     
     print('1272 step',step[:5])
     print('1273 block',block[:5])
-    input()
-        
+
     fig=figure()
     ax = fig.add_subplot(111)
     ax.set_title('Step function hantush plotted for control')
@@ -1270,8 +1386,7 @@ if __name__ == "__main__":
     
     print('1280 step pnumber = 0',step[:5])
     print('1281 block pnumber = 0',block[:5])
-    input()
-    
+
     
     hantush = Hantush(arguments_dict = arguments_dict, Nint = 480, time_step=time_step, pnumber = 1)
     step = hantush.stepfunction( p ,logtransform)
@@ -1279,7 +1394,7 @@ if __name__ == "__main__":
     
     print('1299 step pnumber = 1',step[:5])
     print('1300 block pnumber = 1',block[:5])
-    input()    
+ 
     
     hantush = Hantush(arguments_dict = arguments_dict, Nint = 480, time_step=time_step, pnumber = 2)
     step = hantush.stepfunction( p ,logtransform)

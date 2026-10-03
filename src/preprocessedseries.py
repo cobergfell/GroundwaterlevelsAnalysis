@@ -116,7 +116,7 @@ class Preprocessed:
     
 
     def __init__(self, heads = None, stresses_dict = None,time_step = None,time_step_targets = None, model_definition = None,
-                 memory_dict = None, tminstr = None, tmaxstr = None, tminnum = None, tmaxnum = None, 
+                 memory_dict = None, tminstr = None, tmaxstr = None, tminstr_targets = None, tmaxstr_targets = None, tminnum = None, tmaxnum = None, 
                  Nint = None, settings = None, forcast = False):
         
         
@@ -134,12 +134,15 @@ class Preprocessed:
             
         if tminstr is not None:
             tmin = datestring2num(tminstr)
-
             
         if tminnum is not None:   # entering a time number overrides entering a time string
              tmin = tminnum
-                         
-             
+
+        if tminstr_targets is not None:
+            tmin_targets = datestring2num(tminstr_targets)
+        else:
+            tmin_targets = tmin
+  
         if tmaxnum is not None and tmaxstr is not None:
             message = (f'\nIn class {clsname} of module {modulename}.py: maximum time is both given '
                        f'as string and numeric value. String value will be ignored.\n')                          
@@ -149,17 +152,29 @@ class Preprocessed:
             tmaxstr_default = '31-12-2100'
             dtmax = datetime.strptime(tmaxstr_default,'%d-%m-%Y')
             tmax = date2num(dtmax)
-             
-        if tmaxstr is not None:
-            tmax = datestring2num(tmaxstr)
             
+        if tmaxstr is not None:
+            tmax = datestring2num(tmaxstr)    
+             
         if tmaxnum is not None:   # entering a time number overrides entering a time string
              tmax = tmaxnum    
-                           
+                
+        if tmaxstr_targets is not None:
+            tmax_targets = datestring2num(tmaxstr_targets)
+        else:
+            tmax_targets = tmax             
+
+        
         self.tmin = tmin
         self.tmax = tmax
         self.tminstr = tminstr
-        self.tmaxstr = tmaxstr        
+        self.tmaxstr = tmaxstr   
+        self.tmin_targets = tmin_targets
+        self.tmax_targets = tmax_targets
+        self.tminstr_targets = tminstr_targets
+        self.tmaxstr_targets = tmaxstr_targets         
+        
+
         self.settings = settings
         self.heads = heads
         self.stresses_dict = stresses_dict
@@ -328,7 +343,7 @@ class Preprocessed:
 
 
     
-    def generate_targets_selector(self,time,time_gaps):
+    def generate_targets_selector(self,time,time_gaps,tmin_targets = None, tmax_targets = None):
     
         """
         Method to be used to select calibration targets
@@ -362,8 +377,16 @@ class Preprocessed:
         for gap in time_gaps:
             mask=((time > gap[0]) & (time < gap[1]))
             selector[mask] = False
-   
-
+            
+        if tmin_targets is not None:
+            mask=(time < tmin_targets)
+            selector[mask] = False
+            
+        if tmax_targets is not None:
+            mask=(time > tmax_targets)
+            selector[mask] = False
+            
+            
         return selector    
     
     
@@ -398,7 +421,9 @@ class Preprocessed:
         memory_dict = self.memory_dict
         Nint_dict = self.Nint_dict
         model_definition = self.model_definition
-        
+
+        tmin_targets = self.tmin_targets
+        tmax_targets = self.tmax_targets
         
         t = lambda t_str : date2num(datetime.strptime(t_str,'%Y-%m-%d'))
 
@@ -426,9 +451,11 @@ class Preprocessed:
             _observed_stresses_dict[key] = {}
             for e in self.stresses_dict[key]:
                 _observed_stresses_dict[key][e] = self.stresses_dict[key][e].observed
+                
         
 
-        if model_definition['root_zone']['apply_root_zone'] == True:
+        # if model_definition['root_zone']['apply_root_zone'] == True:
+        if 'root_zone' in model_definition: # replaces preceding line since 14-9-26
             """ this condition make sure that prec and evap have similar
             begin and end time when applying the root zone module
             
@@ -463,10 +490,7 @@ class Preprocessed:
         # tmax = int(min(list_tmax)-1)
         tmin = max(list_tmin)
         tmax = min(list_tmax) 
-
-        
-        self.tmin = tmin
-        self.tmax = tmax
+ 
 
         if tmax > tmin:
 
@@ -484,10 +508,6 @@ class Preprocessed:
                     _tmax = interpolated[-1,0]
                     
 
-                    condition = False
-                    if key in ['prec','evap']: 
-                        condition = True
-                        
                     if key == 'pump':
                         if model_definition['pump']['given_as_pumping_rate'] == False:       
                             condition = True
@@ -495,8 +515,7 @@ class Preprocessed:
                         else:
                             tseries = stress.observed
                             cumulated_volume = np.empty((len(tseries),2),dtype=float)
-                            
-                            
+
                             cumulated_volume[:,0] = tseries[:,0]
                             cumulated_volume[0,0] = 0
 
@@ -526,12 +545,13 @@ class Preprocessed:
                             interpolated[0,1] = interp_values_nearest_neighbour[0] 
       
 
-                    if condition == True:    
+                    elif key in ['prec','evap']: 
                         cumul = self.cumulate(stress.observed)
                         mask = cumul[:,0] >= _tmax                            
                         try:
                             after = cumul[mask,:]
                             lastvalue = after[0,1] - after[1,1]
+                            lastvalue = max(lastvalue,0)
                             delt = after[0,0] - after[1,0]
                         except: 
                             lastvalue = np.mean(stress.observed[:,1])
@@ -545,9 +565,26 @@ class Preprocessed:
                         differentiated = interp_values[1:] - interp_values[:-1]
                         interpolated[-1,1] = lastvalue
                         interpolated[:-1,1] = differentiated[:]
+                        
 
+                    elif key == 'riv':
+                        
+                        # first remove no data or outliers
+                        tseries = stress.observed
 
-                    else: 
+                        mask1 = (tseries[:,0] >= _tmin) & (tseries[:,0] < _tmax)
+                        tseries = tseries[mask1]
+                    
+                        _median = np.median(tseries[:,1])
+
+                        mask2 = (np.abs(tseries[:,1]) >= _median*10) # assume no data are larger than 10 times the median as in data Rijkwaterstaat
+                        tseries[mask2,1]= _median
+                                                
+                        interp_func_nearest_neighbour = interpolate.interp1d(tseries[:,0],tseries[:,1],kind='nearest',bounds_error=False)
+                        interpolated[:,1] = interp_func_nearest_neighbour(_time)     
+                        interpolated[-1,1] =interpolated[-2,1]
+
+                    else: # this else does not presently find any application since we have only prec, evap, pump and riv as stresses
                         interp_func = interpolate.interp1d(stress.observed[:,0],stress.observed[:,1],kind='linear',bounds_error=False)
                         interpolated[:,1] = interp_func(_time) 
 
@@ -609,13 +646,13 @@ class Preprocessed:
                 interpolated_normalized[:,1] -= mean                    
                 heads.interpolated_normalized = interpolated_normalized
                 heads.harmonic_interpolated = Harmonics(interpolated_normalized, tmin = tmin, tmax = tmax).fit_harmonic() 
-            
+
                 obs_time_stamps = heads.observed[:,0]
                 threshold = 0.9 # probability density at quantile value (so here a gap is detected if time interval > 90% of time intervals )
                 time_gaps = self.generate_time_gaps_list(obs_time_stamps,threshold)
-                heads.targets_selector = self.generate_targets_selector(time,time_gaps)
-                heads.targets = heads.interpolated[heads.targets_selector]            
-
+                heads.targets_selector = self.generate_targets_selector(time,time_gaps,tmin_targets = tmin_targets, tmax_targets = tmax_targets)
+                heads.targets = heads.interpolated[heads.targets_selector]  
+                
                 # the weights vector below is given as default, more sophisticated should come later
                 heads.weights = np.ones(len(heads.targets))
    
@@ -674,6 +711,7 @@ class Preprocessed:
         
         self.time = time
         self.stresses_dict = stresses_dict
+         
         if isinstance(self.heads,list):
             self.heads = preprocessed_heads
             self.all_data_for_neural_networks = None

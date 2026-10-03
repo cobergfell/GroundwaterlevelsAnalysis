@@ -17,7 +17,7 @@ from matplotlib.dates import date2num, num2date
 from matplotlib.ticker import Formatter,FuncFormatter, NullLocator, FixedLocator
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca,close
-from osgeo import gdal
+#from osgeo import gdal
 from osgeo.osr import SpatialReference, CoordinateTransformation
 
 
@@ -324,7 +324,9 @@ def get_path_to_meteo_download_data_folder():
         os.mkdir(path_to_meteo_download_data_folder)
         # message = (f'Download directory for meteorology data created at {path_to_meteo_download_data_folder}')
         # print(message) 
-        
+            
+    print('Line 328 - Path to meteo download data folder',path_to_meteo_download_data_folder)
+
     return path_to_meteo_download_data_folder
     
     
@@ -332,7 +334,7 @@ def get_path_to_meteo_download_data_folder():
 
     
 
-def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31-10-2023', knmiparams = 'PRCP'):
+def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31-12-2024', knmiparams = 'PRCP'):
 
     t = lambda t_str : date2num(datetime.strptime(t_str,'%d-%m-%Y')) # lamda function to transform time string into time num
     
@@ -343,9 +345,7 @@ def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31
         tmax = t(tmaxstr)                
 
     path_to_meteo_download_data_folder = get_path_to_meteo_download_data_folder()
-    
 
-              
     
     datafilepath = os.path.join(path_to_meteo_download_data_folder,datafilename)
     F=open(datafilepath)
@@ -411,10 +411,6 @@ def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31
     
     dd,mm,yyyy = tmaxstr.split('-')
     end = yyyy+mm+dd      
-    
-        
-
-    
 
                 
     if len(all_lines) > 0:    
@@ -519,20 +515,19 @@ def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31
             fname +='_'+parametername
             fname +='_'+start
             fname +='_'+end
-            fname +='.csv'
+            fname +='.csv'   
             
-            
-            header1 = 'Meteorological_data_type,time_serie_name,lon,lat,altitude,station_code,X,Y,comment'
-            
+            header1 = 'Meteorological_data_type,station_name,X,Y,lon,lat,altitude,station_code,time_serie_name,comment'
             
             header2 = parametername
-            header2 +=','+fname.split('.')[0]
+            header2 +=','+name
+            header2 +=','+str('%10.2f' %X)
+            header2 +=','+str('%10.2f' %Y)            
             header2 +=','+str('%4.2f' %lon)
             header2 +=','+str('%4.2f' %lat)
             header2 +=','+str('%4.2f' %alt)
             header2 +=','+STN
-            header2 +=','+str('%10.2f' %X)
-            header2 +=','+str('%10.2f' %Y)
+            header2 +=','+fname.split('.')[0]
             if key in ['RH','EV24']:
                 comment = 'Units: meters - Note that the original KNMI parameter is '+variables[key]
             else:
@@ -566,6 +561,508 @@ def parse_knmi_datafile(datafilename=None, tminstr = '01-01-1980', tmaxstr = '31
 
 
 
+     
+def cumulate_per_time_period(tseries, tminstr = '01-01-1900', tmaxstr = '31-12-2100', time_period= 'MONTH', path = None):
+    
+    
+    
+    """
+    a function to cumulate stress values (prec, evap, pump) per time period (week, month, year)
+    input: a numy array of values (first column is time numbers, second column are values)
+    
+    Restriction: the time series must be records with at least a daily frequency without gaps
+  
+
+        
+        
+    Parameters
+    ----------
+    tseries: numpy array_like
+        array of time series of  values
+
+    tminstr: string (optional)
+            string specifying the minimum time on the plot (format dd-mm-yyyy)
+            
+    tmaxstr: string (optional)
+            string specifying the maximum time on the plot (format dd-mm-yyyy)   
+            
+    path :  string
+            Path to export directory
+
+    time_period :  string
+            time period for which stress values are cumulated (MONTH','YEAR')            
+
+    Returns
+    -------
+    records_list : list of python object of data type 'dict'
+        A dictionary specifying teh metadata of the measurement station        
+            
+    cumulated_tseries: numpy array_like
+        array of time series of values
+        
+        
+    metadata : python object of data type 'dict'
+        A dictionary specifying teh metadata of the measurement station        
+
+    """
+
+    def num2month(num):
+        
+        """
+        a function to convert a month number into a month string 
+        
+        Parameters
+        ----------
+        num: integer
+            month number
+
+        Returns
+        -------
+        month: string
+                month name
+
+        """
+        
+        if num == 1:
+            month = 'january'
+        elif num == 2:
+            month = 'february'            
+        elif num == 3:
+            month = 'march'              
+        elif num == 4:
+            month = 'april'            
+        elif num == 5:
+            month = 'may'            
+        elif num == 6:
+            month = 'june'            
+        elif num == 7:
+            month = 'july'              
+        elif num == 8:
+            month = 'augustus'            
+        elif num == 9:
+            month = 'september'            
+        elif num == 10:
+            month = 'october'              
+        elif num == 11:
+            month = 'november'            
+        elif num == 12:
+            month = 'december'          
+        else: 
+             month = 'month name not found'
+        return month
+        
+        
+        
+        
+    
+    dtmin = datetime.strptime(tminstr,'%d-%m-%Y')
+    tmin = date2num(dtmin)
+        
+    dtmax = datetime.strptime(tmaxstr,'%d-%m-%Y')
+    tmax = date2num(dtmax)            
+        
+    mask = (tseries[:,0] > tmin) & (tseries[:,0] < tmax)
+    tseries = tseries[mask]   
+
+    records_list = [] # a list of dictionaries
+        
+    tseries_structured_array= np.empty(len(tseries), dtype=[('day', 'i2'),
+                                                 ('month_number', 'i2'),
+                                                 ('month_name', 'S20'),
+                                                 ('year', 'i4'),
+                                                 ('value', 'f4')])
+            
+    for i in range(0,len(tseries)):
+        dt = num2date(tseries[i,0])
+        YY = dt.year
+        MM = dt.month
+        DD = dt.day
+        month_name = num2month(int(MM))
+        
+        tseries_structured_array['day'][i] = int(DD)
+        tseries_structured_array['month_number'][i] = int(MM)
+        tseries_structured_array['month_name'][i] = month_name
+        tseries_structured_array['year'][i] = int(YY)
+        tseries_structured_array['value'][i] = tseries[i,1]       
+         
+    encoding = 'utf-8'    
+
+    if time_period == 'MONTH':
+        
+        indexmin = 0
+        stop = False
+        i = 0
+        while stop == False:
+            if tseries_structured_array['day'][i] == 1:
+                indexmin = i
+                stop = True
+            else:
+                i += 1
+            if i == len(tseries):
+                stop = True                    
+
+        indexmax = len(tseries)-1
+        stop = False
+        i = indexmax
+
+
+        while stop is False:
+
+            condition = (tseries_structured_array['month_number'][i] in [1,3,5,7,8,10,12]) and (tseries_structured_array['day'][i] == 31)
+            condition += (tseries_structured_array['month_number'][i] in [4,6,9,11]) and (tseries_structured_array['day'][i] == 30)
+            condition += (tseries_structured_array['month_number'][i] == 2) and (tseries_structured_array['day'][i] == 28)
+            
+            if condition == True:
+                indexmax = i
+                stop = True
+
+
+            i -= 1   
+            if i == 0:
+                stop = True
+        
+        tseries_structured_array = tseries_structured_array[indexmin:indexmax]   
+        
+
+        current_month_number = tseries_structured_array['month_number'][0]
+        current_month_name = tseries_structured_array['month_name'][0]
+        current_year = tseries_structured_array['year'][0]
+        c = tseries_structured_array['value'][0]     
+
+        
+        
+        for i in range(1,len(tseries_structured_array)):
+            new_month_number = tseries_structured_array['month_number'][i]
+            new_year = tseries_structured_array['year'][i]
+            if new_month_number == current_month_number:
+                c += tseries_structured_array['value'][i]          
+            else:
+                record = {}
+                datestr = str(15)+'-'+str(current_month_number)+'-'+str(current_year)
+                dt = datetime.strptime(datestr,'%d-%m-%Y')
+                tnum = date2num(dt)
+
+                record['time_num'] = tnum
+                record['cumulated_value'] = c
+                record['month_name'] = tseries_structured_array['month_name'][i].decode(encoding)
+                record['month_number'] = current_month_number
+                record['year'] = tseries_structured_array['year'][i]
+                records_list.append(record)
+                c = tseries_structured_array['value'][i] 
+                current_month_number = new_month_number
+                current_year = new_year
+                
+        
+        cumulated_tseries = np.empty((len(records_list),2))            
+        for i in range(0,len(records_list)):
+            record = records_list[i]
+            cumulated_tseries[i,0] = record['time_num']
+            cumulated_tseries[i,1] = record['cumulated_value']                                    
+                
+
+            
+    elif time_period == 'YEAR':
+        
+        indexmin = 0
+        stop = False
+        i = 0
+        while stop == False:
+            if (tseries_structured_array['day'][i] == 1) and (tseries_structured_array['month_number'][i] == 1):
+                indexmin = i
+                stop = True
+            else:
+                i += 1
+            if i == len(tseries):
+                stop = True                
+                
+                
+        indexmax = len(tseries)-1
+        stop = False
+        i = indexmax
+        while stop == False:
+            if (tseries_structured_array['month_number'][i] == 12) and (tseries_structured_array['day'][i] == 31):
+                indexmax = i
+                stop = True
+            i -= 1   
+            if i == 0:
+                stop = True
+
+        tseries_structured_array = tseries_structured_array[indexmin:indexmax]   
+        current_year = tseries_structured_array['year'][0]
+        c = tseries_structured_array['value'][0]     
+        
+        for i in range(1,len(tseries_structured_array)):
+            new_year = tseries_structured_array['year'][i]
+            if new_year == current_year:
+                c += tseries_structured_array['value'][i]       
+            else:
+                record = {}
+                datestr = '1-7'+'-'+str(current_year)
+                dt = datetime.strptime(datestr,'%d-%m-%Y')
+                tnum = date2num(dt)
+                record['time_num'] = tnum
+                record['cumulated_value'] = c
+                record['year'] = current_year
+                records_list.append(record)
+                c = tseries_structured_array['value'][i]
+                current_year = new_year
+        
+        cumulated_tseries = np.empty((len(records_list),2))            
+        for i in range(0,len(records_list)):
+            record = records_list[i]
+            cumulated_tseries[i,0] = record['time_num']
+            cumulated_tseries[i,1] = record['cumulated_value']    
+
+    return records_list, cumulated_tseries
+    
+
+
+
+def bar_plot(cumulated_tseries, metadata = None, stress_type = 'prec', tminstr = '01-01-1900', tmaxstr = '31-12-2100', time_period= 'YEAR', save_plot = False):
+     
+    """ 
+    A method to plot the rearranged stress time series
+    
+    Parameters
+    ----------    
+
+    cumulated_tseries: numpy array_like
+        array of time series of values
+        
+        
+    metadata : python object of data type 'dict'
+        A dictionary specifying teh metadata of the measurement station 
+        
+        
+     stress_type : string
+        A string specifying the type of stress ('prec', 'evap', 'pump')          
+        
+        
+    tminstr: string (optional)
+            string specifying the minimum time on the plot (format dd-mm-yyyy)
+            
+    tmaxstr: string (optional)
+            string specifying the maximum time on the plot (format dd-mm-yyyy)   
+            
+            
+    time_period :  string
+            time period for which stress values are cumulated (MONTH','YEAR')                     
+            
+    path :  string
+            Path to export directory
+        
+            
+    save_plot: boolean (optional)
+        Boolean variable specifying if the plot is to be saved on disk
+        
+    
+    Returns
+    -------
+    ax: Matplotlib Axes object
+            The Matplotlib Axes object
+    
+    """
+     
+    # clsname = str(self.__class__.__name__)
+    # modulename = str(__name__)   
+    
+    # observed = self._observed
+    left_margin = 0.12
+    right_margin = 0.06
+    top_margin = 0.12
+    bottom_margin = 0.34
+    dy = 0.04
+    dx = 0.05        
+       
+    fs = 12
+      
+     
+    # if tminstr is not None:
+    #     tmin = datestring2num(tminstr)
+    # else:
+    #     tmin = observed[0,0]
+                
+    # if tmaxstr is not None:
+    #     tmax = datestring2num(tmaxstr)
+    # else:
+    #     tmax = observed[-1,0]
+       
+    # mask = (observed[:,0] >= tmin) & (observed[:,0] < tmax)
+    # observed = observed[mask]        
+    
+
+    plot_length = 1-left_margin-right_margin
+    plot_height = 1-bottom_margin-top_margin
+    xll = left_margin # x coordinate lower left corner
+    yll = 1-top_margin-plot_height # y coordinate lower left corner
+    
+    
+    fig=figure(num=None, figsize=(8,10),dpi=50,facecolor='w', edgecolor='k')# figsize=(width, height) in inches.
+       
+    ax = fig.add_axes([xll,yll,plot_length,plot_height],frameon=True, xscale=None, yscale=None)  
+    
+    leg_list = []
+    # ax.plot_date(cumulated_tseries[:,0],cumulated_tseries[:,1],'b-',linewidth = 1.0) 
+    
+    if time_period == 'YEAR':
+        width = 366       
+    else:
+        width = 31
+    
+    ax.plot_date(cumulated_tseries[:,0], cumulated_tseries[:,1],'b-',linewidth = 0.0) # make line width > 0 to make it appearant 
+    ax.bar(cumulated_tseries[:,0], cumulated_tseries[:,1], width=width, bottom=None,color='cyan',edgecolor='cyan')
+
+
+    leg_list.append('observed')
+            
+
+    
+    if time_period == 'YEAR':
+        
+        def format_date(dates, pos=None):
+            return num2date(dates).strftime('%Y')
+        
+        ax.set_xlabel('year (yyyy)',fontsize=fs)
+        ax.xaxis.set_major_formatter(FuncFormatter(format_date))    
+    
+    else:
+        
+        def format_date(dates, pos=None):
+            return num2date(dates).strftime('%m-%Y')      
+    
+        ax.set_xlabel('month-year (mm-yyyy)',fontsize=fs)
+        ax.xaxis.set_major_formatter(FuncFormatter(format_date))       
+
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(fs)
+        tick.label.set_rotation(0)
+        # tick.label.set_rotation(45)
+    
+    for label in ax.xaxis.get_majorticklabels():
+        #ha=label.get_horizontalalignment()
+        label.set_horizontalalignment('center')
+         
+    list_of_values= []
+    if metadata is not None:
+        name = metadata['name']
+        X = metadata['X']
+        Y = metadata['Y']
+        list_of_values = [name,X,Y]
+
+    
+    if stress_type == 'prec':
+        title = 'Precipitation records'
+        ax.set_title(title,fontsize=fs)       
+        (x, y) = ax.title.get_position()
+        #ax.title.set_y(0.95 * y)    
+        ax.grid(True)               
+        yas_title = 'meter'
+        ax.set_ylabel(yas_title,fontsize=fs)
+        
+        
+    elif stress_type == 'evap':
+        title = 'Evaporation records'
+        ax.set_title(title,fontsize=fs)       
+        (x, y) = ax.title.get_position()
+        #ax.title.set_y(0.95 * y)    
+        ax.grid(True)               
+        yas_title = 'meter'
+        ax.set_ylabel(yas_title,fontsize=fs)
+        
+    elif stress_type == 'pump':
+
+        title = 'Extracted volumes'
+        ax.set_title(title,fontsize=fs)       
+        (x, y) = ax.title.get_position()
+        #ax.title.set_y(0.95 * y)    
+        ax.grid(True)               
+        yas_title = 'meter'
+        ax.set_ylabel(yas_title,fontsize=fs)
+        
+    else:
+        title = ''
+        ax.set_title(title,fontsize=fs)       
+        (x, y) = ax.title.get_position()
+        #ax.title.set_y(0.95 * y)    
+        ax.grid(True)               
+        yas_title = 'measurements units'
+        ax.set_ylabel(yas_title,fontsize=fs)       
+      
+       
+    
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(fs)
+        tick.label.set_rotation(45)
+    
+    for label in ax.xaxis.get_majorticklabels():
+        #ha=label.get_horizontalalignment()
+        label.set_horizontalalignment('center')          
+    
+    ax.grid(True)
+
+    list_of_header_items=[
+            'Meteo station name:',
+            'X coordinate',
+            'Y coordinate',]
+            # 'Z (m above datum)',
+            # 'Surface_level (m above datum)',
+            # '5% low quantile (m above datum)',
+            # 'Median (m above datum)',
+            # '5% high quantile (m above datum)']
+
+    
+    Xleg = 0.05
+    Yleg = -0.22
+
+    # ax.annotate('Legend', xy=(Xleg, Yleg), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)#this is for 1 column 2 rows
+    # leg = ax.legend((leg_list), ncol=2,shadow=False,bbox_to_anchor=[Xleg, Yleg-0.2], loc='lower left',frameon=False)
+    # ltext  = leg.get_texts() 
+    # plt.setp(ltext, fontsize=fs)    # the legend text fontsize
+
+    # X=[0.30,0.60]
+    # Y=[-0.37]
+    X = [Xleg,Xleg+0.3]
+    Y = [Yleg-0.05] 
+    
+    delta_y=0.07
+    for i in range(1,len(list_of_header_items)):    
+        last_y=Y[-1]                      
+        Y.append(last_y-dy)
+    
+    for i in range(0,len(list_of_header_items)):
+        ax.annotate(list_of_header_items[i], xy=(X[0],Y[i]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+        ax.annotate(list_of_values[i], xy=(X[1],Y[i]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+
+    show()
+     
+
+         
+
+     # if save_plot == True:
+     #     if self.name is not None:
+     #         figname = "plot_of_{}".format(self.name)
+     #     else:
+     #         figname = "time_series_plot"
+     #     try: 
+     #         abs_path=os.path.dirname(os.path.abspath(__file__))
+     #         abs_path_splitted=abs_path.split('\\')
+     #         path_to_parent_folder_elements=abs_path_splitted[:-1]
+     #         path_to_parent_folder=os.path.join(*path_to_parent_folder_elements)
+     #         splitted=path_to_parent_folder.split(':')#trick  to  repair  path
+     #         path_to_parent_folder=splitted[0]+':\\'+splitted[1]#trick  to  repair  path
+     #         path_to_file_folder=os.path.join(path_to_parent_folder,'results')
+     #         savefig(path_to_file_folder+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
+           
+     #     except:
+     #         curdir=os.getcwd()
+     #         savefig(curdir+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
+                    
+     
+
+         
+    return ax         
+    
+  
 
 
 
@@ -1585,9 +2082,37 @@ if __name__ == "__main__":
     with open(weatherstations_uurgegevens_data_file) as json_file:
         weatherstations_uurgegevens_dict = json.load(json_file)        
 
-    #fetchdata(weatherstationname='DeBilt', tminstr = '01-01-1980', tmaxstr = '31-10-2023', uurgegevens = False, knmiparams = 'PRCP')
+    fetchdata(weatherstationname='DeBilt', tminstr = '01-01-1958', tmaxstr = '31-12-2024', uurgegevens = False, knmiparams = 'PRCP')
     
      
-    parse_knmi_datafile(datafilename='260_DeBilt_19800101_20231031.txt', tminstr = '01-01-1980', tmaxstr = '31-10-2023', knmiparams = 'PRCP')
+    parse_knmi_datafile(datafilename='260_DeBilt_19580101_20241231.txt', tminstr = '01-01-1900', tmaxstr = '31-12-2024', knmiparams = 'PRCP')
         
+    curdir=os.getcwd()
+
+    abs_path = os.path.dirname(os.path.abspath(__file__))
+    abs_path_splitted = abs_path.split('\\')
+    path_to_parent_folder_elements = abs_path_splitted[:-1]
+    path_to_parent_folder = os.path.join(*path_to_parent_folder_elements)
+    splitted = path_to_parent_folder.split(':')#trick  to  repair  path
+    path_to_parent_folder = splitted[0]+':\\'+splitted[1]#trick  to  repair  path
+    path_to_file_folder = os.path.join(path_to_parent_folder,'resources')  
+
+    stresses_dict = {}
     
+    path_to_file = os.path.join(path_to_file_folder,'260_DeBilt_PREC_19000101_20241231.csv')
+    stresses_dict['prec'] = {}
+    
+    from stresstimeseries import Stress
+    prec = Stress.read_from_csv(path_to_file, stress_type = 'prec')   
+    metadata = prec.metadata
+    prec_tseries = prec.observed
+    metadata = prec.metadata
+    
+    
+    time_period = 'YEAR'
+    time_period = 'MONTH'
+    
+    records_list, cumulated_tseries = cumulate_per_time_period(prec_tseries, tminstr = '01-01-1900', tmaxstr = '31-12-2100', time_period = time_period)
+    
+    
+    bar_plot(cumulated_tseries, metadata = metadata, tminstr = '01-01-1900', tmaxstr = '31-12-2100', time_period = time_period)

@@ -411,16 +411,20 @@ class TimeSeriesBase:
           
             ax.set_xlabel('date (yyyy)',fontsize=fs)
             ax.xaxis.set_major_formatter(FuncFormatter(format_date))
-    
+ 
+            ax.xaxis.set_tick_params(rotation=0, labelsize=fs)
+            ax.set_xlabel("ha=center")          
+                
+
             
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-                tick.label.set_rotation(0)
-                # tick.label.set_rotation(45)
+            # for tick in ax.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            #     tick.label.set_rotation(0)
+            #     # tick.label.set_rotation(45)
             
-            for label in ax.xaxis.get_majorticklabels():
-                #ha=label.get_horizontalalignment()
-                label.set_horizontalalignment('center')
+            # for label in ax.xaxis.get_majorticklabels():
+            #     #ha=label.get_horizontalalignment()
+            #     label.set_horizontalalignment('center')
                 
                 
         
@@ -640,21 +644,21 @@ class TimeSeriesBase:
             ax.set_ylabel(yas_title,fontsize=fs)
           
             # ax.set_xlabel('date (dd-mm-yyyy)',fontsize=fs, rotation=20)
-            ax.set_xlabel('date (yyyy)',fontsize=fs)
+            ax.set_xlabel('date (yyyy)',fontsize=fs, rotation=0,ha='center')
             ax.xaxis.set_major_formatter(FuncFormatter(format_date))
             # ax.set_ylabel('values')
             # ax.fmt_xdata = DateFormatter('%Y-%m-%d')   
             # fig.autofmt_xdate()
             #ax.xaxis.set_label_position('right')
+
+            # for tick in ax.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            #     tick.label.set_rotation(0)
+            #     # tick.label.set_rotation(45)
             
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-                tick.label.set_rotation(0)
-                # tick.label.set_rotation(45)
-            
-            for label in ax.xaxis.get_majorticklabels():
-                #ha=label.get_horizontalalignment()
-                label.set_horizontalalignment('center')
+            # for label in ax.xaxis.get_majorticklabels():
+            #     #ha=label.get_horizontalalignment()
+            #     label.set_horizontalalignment('center')
                 
                 
         

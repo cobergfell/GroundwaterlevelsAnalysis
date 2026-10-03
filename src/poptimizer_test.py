@@ -277,8 +277,10 @@ class Poptimizer:
             self.model_residuals = True
                 
                   
-        # Limitatiosn on the computation of the analytical jacobian        
-        if model_definition['root_zone']['apply_root_zone'] == True:
+        # Limitation on the computation of the analytical jacobian        
+        # if model_definition['root_zone']['apply_root_zone'] == True:
+        if 'root_zone' in model_definition: #modified on 14-9-26
+            
             analytical_jacobian = False
 
         if model_definition['prec']['number_of_regimes'] > 1:                
@@ -383,6 +385,10 @@ class Poptimizer:
 
         isvariable = p_dict['isvariable']
         
+        clsname = str(self.__class__.__name__)
+        modulename = str(__name__)   
+
+
         if model_residuals == False:
             if 'noise' in p_dict['p_indexes']:
                 indices = p_dict['p_indexes']['noise']['regime_1']['basicparam']
@@ -406,7 +412,7 @@ class Poptimizer:
         mask = np.array(isvariable)
         p_complete[mask] = p
         p_dict['p'] = p_complete.tolist()
-      
+     
         
         if time_boundaries_sim is not None:
             tmin_sim, tmax_sim = unpack_time_boundaries(time_boundaries_sim)
@@ -467,6 +473,7 @@ class Poptimizer:
 
 
         else:
+
             sim = Simulation(time = time, p_dict = p_dict, stresses_dict = stresses_dict, 
                              heads = _heads, time_step = time_step, Nint_dict = Nint_dict, 
                              tminnum = tmin_sim, tmaxnum = tmax_sim, settings = settings, 
@@ -474,6 +481,13 @@ class Poptimizer:
             
             targets = _heads.targets
             targets_selector = _heads.targets_selector 
+            
+            if sum(targets_selector) == 0:
+                message = (f'\nIn class {clsname} of module {modulename}.py: no targets available: check if given calibration'
+                           f'\nperiod overlap available observations.Press any key to escape\n')                      
+                logger.error(message)   
+                input()
+                    
     
             res = targets[:,1]-sim[targets_selector,1]
             
@@ -931,8 +945,9 @@ class Poptimizer:
 
         
         for j in range(0,nc):
-        
-            if 'prec' in self.model_definition['constrain_with_harmonics']:
+            
+            # if 'prec' in self.model_definition['constrain_with_harmonics']:
+            if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26               
                 p_full = p_dict['p_init']
                 p_full = np.array(p_full)
                 p_full[selectparam] = pp[j,:]
@@ -1115,7 +1130,8 @@ class Poptimizer:
             _heads = self.heads
         else:
             _heads = heads
-            
+        
+
         if isinstance(_heads, list):
             if 'all_piezometers_share_same_model' in self.settings:
                 if self.settings['all_piezometers_share_same_model'] == True:
@@ -1159,15 +1175,19 @@ class Poptimizer:
                 index_begin = index_end
 
         else:
+
             if noise == True:
                 err = self.noise(p, heads = _heads)
             else:
                 err = self.residuals(p, heads = _heads)
+
             targets = _heads.targets
             observed_deviations_from_mean = targets[:,1]-np.mean(targets[:,1])  
 
         mae = np.mean(abs(err))        
         SSreg = sum(pow(err,2))
+        
+        
         SStot = sum(pow(observed_deviations_from_mean,2))  
         
         EV = 100*(1-SSreg/SStot)
@@ -1244,9 +1264,7 @@ class Poptimizer:
         time_boundaries_res = self.time_boundaries_res
         md = self.model_definition
         analytical_jacobian = self.analytical_jacobian
-        
 
-        
         all_piezometers_share_same_model = False
         if isinstance(self.heads, list):
             if 'all_piezometers_share_same_model' in settings:
@@ -1321,7 +1339,7 @@ class Poptimizer:
         p_init = np.array(p_dict['p_init'])
         popt = p_init[selectparam]  
         
-                            
+       
         eps1 = 1e-10
         eps2 = 1e-10
         eps3 = 1e-10
@@ -1334,15 +1352,17 @@ class Poptimizer:
         best_dp = np.zeros(len(p_init))
 
         p_dict['p'] = p_dict['p_init']
-
-        if 'prec' in self.model_definition['constrain_with_harmonics']:
+            
+        # if 'prec' in self.model_definition['constrain_with_harmonics']:   
+        if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26            
+            
             p_dict = update_P_given_harmonic_components(p_dict, stresses_dict, heads)
 
         res_old = self.residuals(popt)
         expvarold = self.goodness_of_fit(popt)[0]
 
-        print('1338  analytical_jacobian flag: ',analytical_jacobian)
-        input()
+        print('line 1364 in class '+ clsname+ ' from module '+modulename+' analytical_jacobian flag: ',analytical_jacobian)
+
         
         if model_residuals == False:
                      
@@ -1350,7 +1370,11 @@ class Poptimizer:
                 J = self.jacanalytical(popt)
 
             else:        
-                if 'prec' in self.model_definition['constrain_with_harmonics']:            
+                # if 'prec' in self.model_definition['constrain_with_harmonics']:   
+                if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26
+                    
+                    
+                    
                     J = self.jacfunc_with_harmonics(popt,self.residuals, p_dict, stresses_dict, heads ,
                                                     selectlog = selectlog_det, selectparam = selectparam_det,delp = delpdef)               
                 else:
@@ -1367,7 +1391,10 @@ class Poptimizer:
                 
       
             else:
-                if 'prec' in self.model_definition['constrain_with_harmonics']:    
+                # if 'prec' in self.model_definition['constrain_with_harmonics']:   
+                if 'constrain_with_harmonics' in self.model_definition: #modified on 14-9-26   
+                    
+                    
                     J = self.jacfunc_with_harmonics(popt,self.noise, p_dict, stresses_dict, heads, 
                                                     selectlog = selectlog, selectparam = selectparam ,delp = delpdef)    
     
@@ -1399,7 +1426,7 @@ class Poptimizer:
         while not stop and k < maxiter:
  
             k = k+1
-            print('1330 k',k)
+            print('1417 k',k)
 
             normdp = delta
             
@@ -1456,7 +1483,6 @@ class Poptimizer:
                 
                 ptry = popt + dp
                 
-                
                 ptry_full = p_dict['p_init']
                 ptry_full = np.array(ptry_full)
                 ptry_full[selectparam] = ptry
@@ -1465,7 +1491,8 @@ class Poptimizer:
                 # sim = Simulation(time, p_dict, stresses_dict,time_step = None, Nint_dict = None, tminnum = tmin_sim, tmaxnum = tmax_sim, settings = None).simulate()
                 # simulation_det = sim[targets_selector,1] #deterministic simulation
 
-                if 'prec' in self.model_definition['constrain_with_harmonics']:
+                # if 'prec' in self.model_definition['constrain_with_harmonics']:
+                if 'constrain_with_harmonics' in self.model_definition:    
                     p_dict = update_P_given_harmonic_components(p_dict, stresses_dict, heads)
             
                 # sim = Simulation(time = time, p_dict = p_dict, stresses_dict = stresses_dict, 
@@ -1498,13 +1525,13 @@ class Poptimizer:
 
                     
                 else:
-                    message = (f'line 1432: expvarold = {expvarold:.2f}')
+                    message = (f'line 1523: expvarold = {expvarold:.2f}')
                     print(message)
-                    message = (f'line 1434: expvarnew = {expvarnew:.2f}')
+                    message = (f'line 1525: expvarnew = {expvarnew:.2f}')
                     print(message)                    
-                    message = (f'line 1436: expvarnoiseold = {expvarnoiseold:.2f}')
+                    message = (f'line 1527: expvarnoiseold = {expvarnoiseold:.2f}')
                     print(message)
-                    message = (f'line 1438: expvarnoisenew = {expvarnoisenew:.2f}')
+                    message = (f'line 1530: expvarnoisenew = {expvarnoisenew:.2f}')
                     print(message)                      
 
                     condition = (expvarnoisenew > expvarnoiseold) and (expvarnew > expvarold)
@@ -1545,7 +1572,9 @@ class Poptimizer:
                                
                         else:
                             
-                            if 'prec' in self.model_definition['constrain_with_harmonics']:    
+                            # if 'prec' in self.model_definition['constrain_with_harmonics']:   
+                            if 'constrain_with_harmonics' in self.model_definition:   #modified on 14-9-26                             
+                                
                                 J = self.jacfunc_with_harmonics(ptry,self.residuals, p_dict, stresses_dict, heads, 
                                                                 selectlog = selectlog_det, selectparam = selectparam_det ,delp = delpdef)    
                             else:
@@ -1562,7 +1591,8 @@ class Poptimizer:
                                
                         else:                        
                         
-                            if 'prec' in self.model_definition['constrain_with_harmonics']:    
+                            # if 'prec' in self.model_definition['constrain_with_harmonics']:   
+                            if 'constrain_with_harmonics' in self.model_definition:   #modified on 14-9-26    
                                 J = self.jacfunc_with_harmonics(ptry,self.noise, p_dict, stresses_dict, heads, 
                                                                 selectlog = selectlog, selectparam = selectparam ,delp = delpdef)    
                             else:
@@ -1610,7 +1640,9 @@ class Poptimizer:
             if analytical_jacobian == True:
                 J = self.jacanalytical(popt)                
             
-                if 'prec' in self.model_definition['constrain_with_harmonics']:    
+                # if 'prec' in self.model_definition['constrain_with_harmonics']:  
+                if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26              
+                    
                     J = self.jacfunc_with_harmonics(popt,self.residuals, p_dict, stresses_dict, heads, 
                                                     selectlog = selectlog_det, selectparam = selectparam_det ,delp = delp)    
                 else:
@@ -1622,7 +1654,8 @@ class Poptimizer:
                 J_with_noise_model = self.jacanalytical(popt)       
                 
             else:    
-                if 'prec' in self.model_definition['constrain_with_harmonics']:    
+                # if 'prec' in self.model_definition['constrain_with_harmonics']:  
+                if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26          
                     J_with_noise_model = self.jacfunc_with_harmonics(popt,self.noise, p_dict, stresses_dict, heads,
                                                     selectlog = selectlog, selectparam = selectparam ,delp = delp)    
                 else:
@@ -1634,8 +1667,11 @@ class Poptimizer:
         
         p_dict['p'] = popt_full
         
-
-        if 'prec' in self.model_definition['constrain_with_harmonics']:
+        
+        
+        
+        # if 'prec' in self.model_definition['constrain_with_harmonics']:  
+        if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26                  
             p_dict = update_P_given_harmonic_components(p_dict, stresses_dict, heads)
 
 
@@ -1696,6 +1732,11 @@ class Poptimizer:
             harmonic_modeled = Harmonics(modeled_normalized).fit_harmonic()
             heads.harmonic_modeled = harmonic_modeled
             
+            to_plot = [heads.targets,heads.observed,heads.modeled]
+            colors = ['go','b-','r-']
+            legend_list = ['targets','observations','modeled']
+            plotax = heads.plot_multiple_series(tseries_list = to_plot, colors = colors, legend_list = legend_list, share_axes = True )
+
 
             ind_begin = ind_end
             for stress_type in self._stresses_dict:
@@ -2055,13 +2096,23 @@ class Poptimizer:
             ax1.hist(residuals_series,bins=minorticks,density=True)
             ax1.set_xlim(-0.15,0.15)
             ax1.plot(xvalues,pdf,'r',linewidth=2)
-            for tick in ax1.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-                #tick.label.set_rotation(20)
-            for label in ax1.xaxis.get_majorticklabels():
-                #ha=label.get_horizontalalignment()
-                #label.set_horizontalalignment('right')
-                label.set_horizontalalignment('center')
+            
+
+            ax1.xaxis.set_tick_params(rotation=0, labelsize=fs)         
+            ax1.set_xlabel('residuals (m)',fontsize=fs,ha='center')
+            
+            
+            
+            
+
+            # for tick in ax1.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            #     #tick.label.set_rotation(20)
+            # for label in ax1.xaxis.get_majorticklabels():
+            #     #ha=label.get_horizontalalignment()
+            #     #label.set_horizontalalignment('right')
+            #     label.set_horizontalalignment('center')
+                
             ax1.grid(True)
             x_text = 0.05
             y_text = 0.95
@@ -2079,11 +2130,15 @@ class Poptimizer:
             majorLocator  = FixedLocator(ticks)
             ax2.yaxis.set_major_locator(majorLocator)
             ax2.set_ylim(ticks[0]-0.02,ticks[-1]+0.02)    
+            
+            ax2.xaxis.set_tick_params(rotation=0, labelsize=fs)
+            ax2.set_xlabel('deviation from mean simulated head (m)',fontsize=fs,ha='center')
                 
-            for tick in ax2.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-            for tick in ax2.yaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
+            # for tick in ax2.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            # for tick in ax2.yaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+                
             ax2.annotate('b)', xy=(x_text, y_text), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
             
             x_title = -0.01
@@ -2105,10 +2160,16 @@ class Poptimizer:
             ax3.plot(t,acfsample[:,0],'m-.')
             ax3.set_xlabel('time (days)',fontsize=fs)
             ax3.set_ylabel('autocorrelation',fontsize=fs)
-            for tick in ax3.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-            for tick in ax3.yaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
+            
+            ax3.xaxis.set_tick_params(rotation=45, labelsize=fs)    
+            ax3.set_xlabel('timwd (days)',fontsize=fs,ha='center')
+            
+            
+            # for tick in ax3.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            # for tick in ax3.yaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+                
             ax3.set_ylim(-1,1)
             leg = ax3.legend((str(int(alpha*100))+'% upper confidence interval','sample residuals autocorrelation',str(int(alpha*100))+'% lower confidence interval'),loc='lower left',shadow=False)
             ax3.text(x_text,y_text,'c)',fontsize=fs,rotation='horizontal',ha='left', va='center',transform=ax3.transAxes)

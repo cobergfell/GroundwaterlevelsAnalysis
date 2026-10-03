@@ -1,0 +1,10 @@
+name, screen_number, X, Y, surface_level_m_above_datum, screen_top_m_above_datum, screen_bottom_m_above_datum,begin_date,end_date
+B13D1021-01_,    6.14,273559.00,551954.00,    6.74,    6.34,    6.14,18-2-2002,15-3-2010
+
+Date(dd-mm-yyyy HH:MM:SS),head(m above datum)
+18-02-2002  00:00:00,  6.2600
+05-03-2002  00:00:00,  6.1600
+28-01-2008  00:00:00,  6.2400
+27-02-2008  00:00:00,  6.5400
+28-02-2010  00:00:00,  6.4000
+15-03-2010  00:00:00,  6.3400

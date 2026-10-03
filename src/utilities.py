@@ -420,7 +420,6 @@ def stdev_back_from_log(mu,sigma):
     # https://towardsdatascience.com/log-normal-distribution-a-simple-explanation-7605864fb67c                    
         
     """ 
-    
     mu_b = np.exp(mu+0.5*sigma**2)
     variance = (np.exp(sigma**2)-1)*np.exp(2*mu+sigma**2)
     sigma_b = np.sqrt(variance)

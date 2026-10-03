@@ -24,7 +24,8 @@ from utilities import datestring2num, basename, generate_ticks
 from plotfunctions import simpleplot
 from rootzone import Vangenuchten
 from modeldefinition import ModelDefinition
-from harmonics_toolkit import *
+from harmonics_toolskit import *
+from trends import LinearTrend
 
 
 logger = getLogger(__name__)
@@ -112,7 +113,7 @@ class Simulation:
                  heads = None,time_step = None, Nint_dict = None, tminstr = None, 
                  tmaxstr = None, tminnum = None, tmaxnum = None, settings = None, 
                  targets_weighting_method = None, model_residuals = False, 
-                 model_definition = None):
+                 model_definition = None, is_a_control_run = False):
 
         #local copy of mutable input dictionaries
         _p_dict = {}
@@ -139,10 +140,13 @@ class Simulation:
             model_definition = ModelDefinition().model_definition
         self.model_definition = model_definition
 
-        if 'prec' in self.model_definition['constrain_with_harmonics']:
+        # if 'prec' in self.model_definition['constrain_with_harmonics']:
+        if 'constrain_with_harmonics' in self.model_definition: # modified on 14-9-26    
+            
             self._p_dict = update_P_given_harmonic_components(self._p_dict, self._stresses_dict, self._heads)
             
-                          
+        self.is_a_control_run = is_a_control_run
+                
         t = lambda t_str : date2num(datetime.strptime(t_str,'%d-%m-%Y')) 
 
         tmin = None
@@ -335,7 +339,7 @@ class Simulation:
             toconvolve = True     
             for e in stresses_dict[stress_type]:
                 
-                if stress_type not in p_dict['componentsnames']:
+                if stress_type not in p_dict['contributionsnames']:
                     toconvolve = False
  
                 if toconvolve == True:
@@ -384,7 +388,8 @@ class Simulation:
                         preprocessed_stress = stresses_dict[stress_type][e].interpolated
                     
                     if stress_type == 'prec':
-                        if self.model_definition['root_zone']['apply_root_zone'] == True:
+                        # if self.model_definition['root_zone']['apply_root_zone'] == True:
+                        if 'root_zone' in self.model_definition: # modified on 14-9-26
                             if self.model_definition['root_zone']['funct_type'] == 'vangenuchten':
                                 rootzone_instance = Vangenuchten(p_dict = p_dict, stresses_dict = stresses_dict, time_step = 1.0, 
                                   root_zone_model = 'Brooks_and_Corey')
@@ -436,16 +441,56 @@ class Simulation:
             components['constant base']['db'] = db_as_component          
 
         simulation[:,1] = simulation[:,1] + db
-          
-        self._simulated = simulation
+
+      
+        if 'lintrend' in model_definition:
+            tminstr = model_definition['lintrend']['tminstr']
+            tmaxstr = model_definition['lintrend']['tmaxstr']
+
+            direction = model_definition['lintrend']['direction']
+            time = simulation[:,0]
+            lt = LinearTrend(time_array=time,p_dict=p_dict, tminstr=tminstr, tmaxstr=tmaxstr, direction=direction)
+            trend = lt.evaluate()
+            simulation[:,1] = simulation[:,1] + trend
+              
+            # if self.is_a_control_run is True:
+            #     from matplotlib.pyplot import figure, show,savefig,clabel,contour,setp,gcf,getp,gca
+            #     from matplotlib.dates import DayLocator,MonthLocator,YearLocator,DateFormatter #HourLocator,Yearlocator
+            #     from matplotlib.ticker import Formatter,FuncFormatter, NullLocator, FixedLocator            
+                
+                
+            #     fig=figure()
+            #     ax = fig.add_subplot(111)
+            #     title='check trend'
+            #     ax.set_title(title)
+                
+                
+            #     ax.plot_date(heads.observed[:,0],heads.observed[:,1],'b')
+            #     ax.plot_date(simulation[:,0],simulation[:,1],'m')
+            #     ax.plot_date(time,trend+np.mean(simulation[:,1]),'g')
+                
+            #     leg = ax.legend(('observed','simulated','trend+mean(simulation[:,1]'),loc='upper left',shadow=False)
+            #     ax.set_xlabel('time')
+            #     ax.grid(False)
+            #     ax.fmt_xdata = DateFormatter('%Y-%m-%d')                        # %H:%M:%S
+            #     fig.autofmt_xdate()
+            #     show()
+            #     input()
+            
+    
+            self._simulated = simulation
+            components['lintrent'] = {}
+            components['lintrent']['lintrent'] = trend
         
         self.components = components
+        
+
         
        
         if model_residuals == True:
             if p_indexes['noise'] is not None:
                 if heads is not None:
-                    noisefunctclassname = p_dict['componentsnames']['noise']
+                    noisefunctclassname = p_dict['contributionsnames']['noise']
                     simulated_residuals = eval( noisefunctclassname + "(p_dict = p_dict, time = time, heads = heads, deterministic_simulation = simulation).simulate_residuals()")
                     # simulated_residuals = noisefunctclassname(p_dict = p_dict, time = time, heads = heads, deterministic_simulation = simulation, weighting_method = targets_weighting_method).model_residuals()
                     # simulated_residuals = ResidualsDecayExponentially(p_dict = p_dict, time = time, heads = heads, deterministic_simulation = sim, weighting_method = "SWSI").model_residuals()
@@ -454,15 +499,14 @@ class Simulation:
 
                 else:
                     logger.warning("Heads must be provided to model noise")
-                    
-                
-                
+        
+
         return simulation
     
     
 
-    
-    
+
+ 
     
     def plot(self, tminstr = '01-01-1900', tmaxstr = '31-12-2100', Yticks = None):
         

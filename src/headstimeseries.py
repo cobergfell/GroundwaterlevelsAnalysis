@@ -9,8 +9,9 @@ import numpy as np
 import os
 from timeseriesbase import TimeSeriesBase
 from datetime import datetime
-from matplotlib.dates import date2num, num2date
+from matplotlib.dates import date2num, num2date,YearLocator,MonthLocator,DayLocator,HourLocator,MinuteLocator
 from matplotlib.ticker import Formatter,FuncFormatter, NullLocator, FixedLocator
+
 # from abc import ABC, abstractmethod
 # from collections import OrderedDict
 from matplotlib import pyplot as plt
@@ -20,7 +21,25 @@ from plotfunctions import simpleplot
 from wellmetadata import WellMetaData
 from bs4 import BeautifulSoup   
 import requests
-        
+
+# example of locators from https://matplotlib.org/stable/gallery/ticks/date_formatters_locators.html
+# locators = [
+#     # locator as str, xmax, fmt
+#     ('AutoDateLocator(maxticks=8)', '2003-02-01', '%Y-%m'),
+#     ('YearLocator(month=4)', '2003-02-01', '%Y-%m'),
+#     ('MonthLocator(bymonth=[4, 8, 12])', '2003-02-01', '%Y-%m'),
+#     ('DayLocator(interval=180)', '2003-02-01', '%Y-%m-%d'),
+#     ('WeekdayLocator(byweekday=SU, interval=4)', '2000-07-01', '%a %Y-%m-%d'),
+#     ('HourLocator(byhour=range(0, 24, 6))', '2000-02-04', '%H h'),
+#     ('MinuteLocator(interval=15)', '2000-02-01 02:00', '%H:%M'),
+#     ('SecondLocator(bysecond=(0, 30))', '2000-02-01 00:02', '%H:%M:%S'),
+#     ('MicrosecondLocator(interval=1000)', '2000-02-01 00:00:00.005', '%S.%f'),
+#     ('RRuleLocator(rrulewrapper(freq=MONTHLY, \nbyweekday=(MO, TU, WE, TH, FR), '
+#      'bysetpos=-1))', '2000-07-01', '%Y-%m-%d'),
+# ]
+
+
+
 logger = getLogger(__name__)
 
 class Heads(TimeSeriesBase):
@@ -46,6 +65,10 @@ class Heads(TimeSeriesBase):
         When the response function is a groundwater flow model, L indicates the 
         layer number, with 0 corresponding to the top layer
         
+        
+        
+        TO DO: COMPLETE THE DESCRIPTION OF ALL VARIABLES
+        
     Methods
     -------
     read_from_csv(csv_file = None,tminstr = None, tmaxstr = None, settings = None)
@@ -65,6 +88,11 @@ class Heads(TimeSeriesBase):
         A method to output piezometer characteristics and modeling results (when available) 
 
 
+        TO DO: COMPLETE THE DESCRIPTION OF ALL METHODS
+
+
+
+
     """
 
     
@@ -72,8 +100,6 @@ class Heads(TimeSeriesBase):
                  observed = None,tminstr = None, tmaxstr = None,tminnum = None, tmaxnum = None, 
                  settings = None, p_dict = None, stresses_dict = None):
         
-
-
         TimeSeriesBase.__init__(self, observed = observed, name = name, settings = settings, 
                                     metadata = metadata,tminstr = tminstr, tmaxstr = tmaxstr, tseries_type = 'heads')      
 
@@ -119,6 +145,9 @@ class Heads(TimeSeriesBase):
         self.tmax = tmaxnum
         self.tminstr = tminstr
         self.tmaxstr = tmaxstr
+        self.glg = None # apply to observed heads, in Dutch 'Gemiddelde Lage Grondwaterstanden' meaning average low groundwater level
+        self.gg = None # apply to observed heads, in Dutch 'Gemiddelde Grondwaterstanden' meaning average groundwater level
+        self.ghg = None # apply to observed heads, in Dutch 'Gemiddelde Hoge Grondwaterstanden' meaning average high groundwater level
         
         
         fitgoodness = {}
@@ -128,15 +157,19 @@ class Heads(TimeSeriesBase):
         fitgoodness['pstdev'] = None
         self._fitgoodness = fitgoodness
         
-        
         fitgoodness_with_residuals = {}
         fitgoodness_with_residuals['expvar'] = None
         fitgoodness_with_residuals['pcov'] = None
         fitgoodness_with_residuals['pcor'] = None
         fitgoodness_with_residuals['stdev'] = None
         self._fitgoodness_with_residuals = fitgoodness_with_residuals
-
         
+        statistics_observed_time_series = {}
+        statistics_observed_time_series['GLG'] = None        
+        statistics_observed_time_series['GG'] = None
+        statistics_observed_time_series['GHG'] = None
+        self._statistics_observed_time_series = statistics_observed_time_series
+    
         if metadata.name is not None:         
             self.name = metadata.name
         else:
@@ -186,6 +219,19 @@ class Heads(TimeSeriesBase):
     def observed(self,observed):
         """setter for updated observed time series."""
         self._observed = observed 
+
+
+
+    @property
+    def statistics_observed_time_series(self):
+        """getter for statistics_observed_time_series time series."""
+        return self._statistics_observed_time_series
+
+    @statistics_observed_time_series.setter
+    def statistics_observed_time_series(self,statistics_observed_time_series):
+        """setter for statistics observed time series time series."""
+        self._statistics_observed_time_series = statistics_observed_time_series 
+
 
 
     @property
@@ -300,7 +346,7 @@ class Heads(TimeSeriesBase):
         
                
     @classmethod      
-    def read_from_csv(cls, filepath,tminstr = None, tmaxstr = None, settings = None):
+    def read_from_csv(cls, filepath,tminstr = None, tmaxstr = None, settings = None,datetimeformat =None):
         
         
         """
@@ -429,7 +475,9 @@ class Heads(TimeSeriesBase):
         N_data = N_lines-N_lines_to_skip # this is the number of measurements, skipping the 4 upper lines
         heads = np.empty((N_data,2)) # declare an array of the desired size
         
-                                                                                                                                                                                                                                                    
+        if datetimeformat is None:
+            datetimeformat = '%d-%m-%Y %H:%M:%S'    
+                                                                                                                                                                                                        
         for i in range(0,N_data):#read the records time series records from ascii file
             j = i+N_lines_to_skip
             data_line = all_lines[j].rstrip().split(',')
@@ -439,7 +487,7 @@ class Heads(TimeSeriesBase):
                 # dt=datetime.strptime(data_line[0],'%d-%m-%Y %H:%M:%S')
                 # dt=datetime.strptime(data_line[0],'%d-%m-%Y %H:%M')
                 # time_num=date2num(dt)  
-                time_num = datestring2num(data_line[0], datetimeformat = '%d-%m-%Y %H:%M:%S')
+                time_num = datestring2num(data_line[0], datetimeformat = datetimeformat)
             except :
                 logger.warning("Date-time format not recognized")            
             
@@ -460,8 +508,8 @@ class Heads(TimeSeriesBase):
                 Nskip = settings['sampling_interval']
                 indices = np.arange(0,len(heads),Nskip)
                 heads = np.take(heads, indices, axis=0, out=None, mode='raise')
-            
-        if heads == []:
+
+        if len(heads) == 0:
             logger.warning("The observation time series is empty, "
                                 "check if time series and time boundaries are overlpping")
         
@@ -469,8 +517,10 @@ class Heads(TimeSeriesBase):
                    observed = heads, tminstr = tminstr, tmaxstr = tmaxstr, tminnum = tmin, tmaxnum = tmax,settings = settings)           
 
        
+
     @classmethod      
-    def read_from_DINO(cls,filepath, tminstr = None, tmaxstr = None, separator = ',', settings = None, datetimeformat = '%d-%m-%Y', artdiverformat = False):
+    def read_from_DINO(cls,filepath, tminstr = None, tmaxstr = None, separator = ',', datetimeformat = '%d-%m-%Y', artdiverformat = False,
+                       settings = None):
         
         """
         A class method to read groundwater head time series from am ascii file 
@@ -545,6 +595,7 @@ class Heads(TimeSeriesBase):
         from datetime import datetime
         from numpy import median
         
+        print('389 filepath',filepath)
         
         settings = settings
         tmin = -1e9
@@ -565,13 +616,18 @@ class Heads(TimeSeriesBase):
         all_lines = F.readlines()
         F.close()
         
+        data_text_is_double_quoted = False
+        test_for_double_quotes = all_lines[0][0]
+        if test_for_double_quotes == '"':
+            data_text_is_double_quoted = True
+        
             
         #first determine if it is NAP or 'maaiveld'format
         stop = 0
         i = -1
         while stop == 0:#
             i = i+1
-            if all_lines[i][:3] == 'Ref':
+            if all_lines[i][:4] in ['Refe','"Ref']:
                 stop = 1
                 if 'NAP' in all_lines[i]:
                     reference = 'NAP'
@@ -581,7 +637,7 @@ class Heads(TimeSeriesBase):
 
         indices = []
         for i in range(0,30):#assume metadata bloc is within first 30 lines
-            if all_lines[i][:3] in ["Loc","LOC"]:
+            if all_lines[i][:4] in ['Loca','LOCA','"Loc','"LOC']:
                 indices.append(i)
      
         metadata_bloc_begin = indices[0]+1
@@ -592,15 +648,20 @@ class Heads(TimeSeriesBase):
             i+=1
             if len(all_lines[i][0]) < 2 :
                 condition = False
+            if all_lines[i][:11] == ',,,,,,,,,,,' :
+                condition = False                
             if i > metadata_bloc_begin +30:
                 condition = False
         metadata_bloc_end = i
         
         # metadata_bloc_end = indices[1] - 1
         # data_bloc_begin = metadata_bloc_end + 3
-        data_bloc_begin = indices[-1]+1
         
-        
+        data_bloc_begin = indices[-1]
+        if data_text_is_double_quoted == False:
+            data_bloc_begin = indices[-1]+1
+
+               
         data_bloc_end = len(all_lines)
         number_of_metadata_lines = metadata_bloc_end - metadata_bloc_begin
         Nrecords = len(all_lines)-data_bloc_begin
@@ -611,6 +672,12 @@ class Heads(TimeSeriesBase):
             list_of_metadata = []#create a list of dictionaries of metadat
             for i in range(metadata_bloc_begin,metadata_bloc_end):
                 metadataline = all_lines[i]
+                cleaned_line = ''
+                for j in range(0,len(metadataline)):
+                    if metadataline[j] != '"':
+                        cleaned_line += metadataline[j]
+                
+                metadataline = cleaned_line
                 metadata_list = metadataline.rstrip().split(',')
 
             try:
@@ -645,15 +712,17 @@ class Heads(TimeSeriesBase):
             except:
                 message = (f'\nCould not read surface level from line {metadataline}\n')
                 logger.error(message) 
+                surface_level = -9999
     
             try:
-                screen_top = float(metadata_list[9]) / 100. 
+                screen_top = float(metadata_list[11]) / 100. 
             except:
                 message = (f'\nCould not read screen top from line {metadataline}\n')
                 logger.error(message) 
+                screen_top = -9999
                 
             try:
-                screen_bottom = float(metadata_list[10]) / 100. 
+                screen_bottom = float(metadata_list[12]) / 100. 
             except:
                 message = (f'\nCould not read screen bottom from line {metadataline}\n')
                 f'\nScreen bottom is set equal to screen top.\n' 
@@ -665,7 +734,7 @@ class Heads(TimeSeriesBase):
             except:    
                 message = (f'\nScreen mean altitude Z couls not be evaluated\n')
                 logger.error(message)             
-            
+                Z = -9999
             
             metadata = WellMetaData(name = name, X = X, Y = Y, Z = Z, surface_level = surface_level, 
                                     screen_top = screen_top, screen_bottom = screen_bottom )                   
@@ -682,11 +751,22 @@ class Heads(TimeSeriesBase):
         metadata = list_of_metadata[-1]#the last metadata dictionaryis used later as reference when meta data are needed
 
         heads = np.empty((Nrecords,2))
+        
         c = -1
+        
+
         for i in range(data_bloc_begin,data_bloc_end):
             c = c+1
 
             line = all_lines[i]
+            cleaned_line = ''
+
+            for j in range(0,len(line)):
+             
+                if line[j] != '"':
+                    cleaned_line += line[j]           
+            line = cleaned_line
+            
             d = line.split(',')
             
             try:
@@ -719,7 +799,6 @@ class Heads(TimeSeriesBase):
         
         return cls(name = name, X = X, Y = Y, Z = Z, metadata = metadata, 
                    observed = heads, tminstr = tminstr, tmaxstr = tmaxstr, tminnum = tmin, tmaxnum = tmax, settings = settings)        
-    
     
 
 
@@ -961,25 +1040,6 @@ class Heads(TimeSeriesBase):
 
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     def generate_gxg(self,tminstr= None, tmaxstr = None, alpha = 0.05):
         
         """
@@ -1033,13 +1093,7 @@ class Heads(TimeSeriesBase):
         
         mask = (tseries[:,0] >= tmin) & (tseries[:,0] < tmax)
         tseries = tseries[mask]
-        
-        glg = None
-        gg = None
-        ghg = None
-        
-   
-
+    
         gg = np.median(tseries[:,1])
     
         #sort the time series in order to determine the quantiles
@@ -1057,7 +1111,10 @@ class Heads(TimeSeriesBase):
         if (tmax-tmin) <365 or len(tseries) < 24:
             logger.warning("The selected time series is too short to estimates mean levels")        
             
-    
+        self.glg = glg
+        self.gg = gg
+        self.ghg = ghg
+
         return glg,gg,ghg            
     
     
@@ -1156,7 +1213,6 @@ class Heads(TimeSeriesBase):
                         sigma = pstdev[j]
                         if logtransform[i] == True:
                             mu,sigma= stdev_back_from_log(mu,sigma)
-                        
                         output_string+= (f'{mu:<{paddingright}.2e}')              
                         output_string+= (f'stdev = {sigma:<{paddingright}.2e}\n')    
                     else: 
@@ -1229,7 +1285,8 @@ class Heads(TimeSeriesBase):
 
             
         if model_definition is not None:
-            if model_definition['constrain_with_harmonics'] != []:
+            # if model_definition['constrain_with_harmonics'] != []:
+            if 'constrain_with_harmonics' in  model_definition:                
                 
                 emptystr = ''
                 paddingright = 12
@@ -1326,10 +1383,10 @@ class Heads(TimeSeriesBase):
                             output_string+= (f'Phase shift {phi:<{paddingright}.2e}')              
                             output_string+= (f'stdev = {sigma:<{paddingright}.2e}\n')                        
                             
-                
+        
         return output_string
     
-    
+
     def plot(self, tminstr = None, tmaxstr = None, save_plot = False):
         
         """ 
@@ -1409,18 +1466,21 @@ class Heads(TimeSeriesBase):
     
         ax.set_ylabel(yas_title,fontsize=fs)
       
-        ax.set_xlabel('date (yyyy)',fontsize=fs)
+        ax.set_xlabel('date (yyyy)',fontsize=fs,ha='center')
         ax.xaxis.set_major_formatter(FuncFormatter(format_date))
 
         
-        for tick in ax.xaxis.get_major_ticks():
-            tick.label.set_fontsize(fs)
-            tick.label.set_rotation(0)
-            # tick.label.set_rotation(45)
+        ax.xaxis.set_tick_params(rotation=0, labelsize=fs)
+
+
+        # for tick in ax.xaxis.get_major_ticks():
+        #     tick.label.set_fontsize(fs)
+        #     tick.label.set_rotation(0)
+        #     # tick.label.set_rotation(45)
         
-        for label in ax.xaxis.get_majorticklabels():
-            #ha=label.get_horizontalalignment()
-            label.set_horizontalalignment('center')
+        # for label in ax.xaxis.get_majorticklabels():
+        #     #ha=label.get_horizontalalignment()
+        #     label.set_horizontalalignment('center')
             
         
         metadata = self.metadata
@@ -1433,7 +1493,14 @@ class Heads(TimeSeriesBase):
         screen_bottom = metadata.screen_bottom
         
         time = observed[:,0]
-        lower_expect, median, upper_expect = self.generate_gxg(tminstr = tminstr, tmaxstr = tmaxstr, alpha = 0.05)
+        
+        
+        if self.statistics_observed_time_series['GG'] is None:
+            lower_expect, median, upper_expect = self.generate_gxg(tminstr = tminstr, tmaxstr = tmaxstr, alpha = 0.05)
+        else:
+            lower_expect = self.statistics_observed_time_series['GLG']
+            median = self.statistics_observed_time_series['GG']
+            upper_expect = self.statistics_observed_time_series['GHG']
         
         surface_level_array = surface_level*np.ones(len(observed))
         
@@ -1442,12 +1509,14 @@ class Heads(TimeSeriesBase):
         lower_expect_array = lower_expect*np.ones(len(observed))
         
         
-        ax.plot_date(time,upper_expect_array,'c--',linewidth=2.0) 
+        ax.plot_date(time,upper_expect_array,'r--',linewidth=2.0) 
         leg_list.append('95% upper quantile')
         ax.plot_date(time,median_array,'m-',linewidth=2.0)  
         leg_list.append('median')
-        ax.plot_date(time,lower_expect_array,'g--',linewidth=2.0)         
+        ax.plot_date(time,lower_expect_array,'r--',linewidth=2.0)         
         leg_list.append('95% lower quantile')
+        ax.plot_date(time,surface_level_array,'g--',linewidth=4.0)         
+        leg_list.append('surface level')
         
         
         leg = ax.legend((leg_list),ncol=3,bbox_to_anchor=(0.85,-0.24),frameon=False)
@@ -1469,19 +1538,22 @@ class Heads(TimeSeriesBase):
 
         
         ax.set_ylabel('Meter above datum',fontsize=fs)
-        ax.set_xlabel('Date (yyyy)',fontsize=fs)
+        ax.set_xlabel('Date (yyyy)',fontsize=fs,ha='center')
         #ax.set_xlabel('Datum (yyyy)',fontsize=fs)#030919
         ax.xaxis.set_major_formatter(FuncFormatter(format_date))
         #fig.autofmt_xdate()
         #ax.xaxis.set_label_position('right')
-    
-        for tick in ax.xaxis.get_major_ticks():
-            tick.label.set_fontsize(fs)
-            tick.label.set_rotation(45)
         
-        for label in ax.xaxis.get_majorticklabels():
-            #ha=label.get_horizontalalignment()
-            label.set_horizontalalignment('center')          
+        ax.xaxis.set_tick_params(rotation=45, labelsize=fs)
+
+   
+        # for tick in ax.xaxis.get_major_ticks():
+        #     tick.label.set_fontsize(fs)
+        #     tick.label.set_rotation(45)
+        
+        # for label in ax.xaxis.get_majorticklabels():
+        #     #ha=label.get_horizontalalignment()
+        #     label.set_horizontalalignment('center')          
         
         ax.grid(True)
         
@@ -1540,11 +1612,6 @@ class Heads(TimeSeriesBase):
         
     
             
-    
-
-        
-        show()
-            
 
         if save_plot == True:
             if self.name is not None:
@@ -1564,13 +1631,13 @@ class Heads(TimeSeriesBase):
             except:
                 curdir=os.getcwd()
                 savefig(curdir+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
-                       
-        
 
-            
         return ax       
+    
+    
+    
                 
-    def plot_multiple_series(self, tseries_list = None, legend_list = None, share_axes = True, plot_title = None, yas_title = None, 
+    def plot_multiple_series(self, tseries_list = None, legend_list = None, colors = None, share_axes = True, plot_title = None, yas_title = None, 
              tminstr = None, tmaxstr = None, save_plot = False):
         
         """ 
@@ -1585,8 +1652,17 @@ class Heads(TimeSeriesBase):
                 matplotlib.dates function date2num), and observed values 
                 given in the second array axis
                 
-        tseries_list_names: list (optional)
+        legend_list: list (optional)
                 list of time series names given as strings
+                
+        colors: list (optional)
+                list of colors (and line types) for the time series list              
+                
+        share_axes: boolean 
+                determine if the times series share the same axe (default is True)          
+                
+        plot_tile: string (optional)
+                string specifying the title of the plot           
 
         
         yas_title: string (optional)
@@ -1612,25 +1688,55 @@ class Heads(TimeSeriesBase):
                 The Matplotlib Axes object
 
         """
-        
+
         clsname = str(self.__class__.__name__)
         modulename = str(__name__)   
         
+        fs = 18
+        if colors is None:
+            colors = ['b-','c-','r-','g-','m-','m-', 'tab:green-','tab:olive-', 'tab:purple-','tab:pink-','tab:orange-','tab:brown-']
+                  
         observed = self._observed
         interpolated = self._interpolated
         tseries_type = self.tseries_type
 
-        left_margin=0.12
-        right_margin=0.06
-        top_margin=0.12
-        bottom_margin=0.14
+        metadata = self.metadata
+        
+        X = metadata.X
+        Y = metadata.Y
+        Z = metadata.Z
+        surface_level = metadata.surface_level
+        screen_top = metadata.screen_top
+        screen_bottom = metadata.screen_bottom
+        
+        
+        time = observed[:,0]
+        plotmaxtime=time
+        for tserie in tseries_list:
+            if len(tserie)>len(plotmaxtime):
+                plotmaxtime = tserie[:,0]
+    
+    
+        if self.statistics_observed_time_series['GG'] is None:
+            lower_expect, median, upper_expect = self.generate_gxg(tminstr = tminstr, tmaxstr = tmaxstr, alpha = 0.05)
+        else:
+            lower_expect = self.statistics_observed_time_series['GLG']
+            median = self.statistics_observed_time_series['GG']
+            upper_expect = self.statistics_observed_time_series['GHG']     
+        
+        surface_level_array = surface_level*np.ones(len(observed))
+        
+        upper_expect_array = upper_expect*np.ones(len(observed))
+        median_array = median*np.ones(len(observed))
+        lower_expect_array = lower_expect*np.ones(len(observed))
+
+        left_margin=0.06
+        right_margin=0.03
+        top_margin=0.08
+        bottom_margin=0.22
         dy=0.14
         dx=0.05        
-
-        fs = 14
-        colors = ['b-','m-','y-','c-','g-', 'tab:green-','tab:olive-', 'tab:purple-','tab:pink-','tab:orange-','tab:brown-']
-            
-        
+  
         if tminstr is not None:
             tmin = datestring2num(tminstr)
         else:
@@ -1659,6 +1765,8 @@ class Heads(TimeSeriesBase):
 
 
         nl = len(tseries_list)
+        # nl = 1
+
         if nl > 4:
             message = (f'\nIn class {clsname} of module {modulename}.py: '
                        f'The list of time series to plot should not exceed 4.\n')                          
@@ -1671,10 +1779,12 @@ class Heads(TimeSeriesBase):
 
               
         if yas_title is None:  
-            yas_title = 'm above datum'
-
+            yas_title = 'm NAP'
 
         if share_axes == False:
+            print('line 1742 headstimeseries.py input()')
+            input()
+
             nc = 1.0
             plot_length = (1-left_margin-right_margin-dx)/nc
             plot_height = (1-bottom_margin-top_margin-2*dy)/nl
@@ -1688,12 +1798,21 @@ class Heads(TimeSeriesBase):
                 for i in range(1,nl):
                     Y.append(Y[i-1]-plot_height-dy)
             
-            fig=figure(num=None, figsize=(8,8*nl),dpi=50,facecolor='w', edgecolor='k')# figsize=(width, height) in inches.
+            fig=figure(num=None, figsize=(24,25),dpi=50,facecolor='w', edgecolor='k')# figsize=(width, height) in inches.
 
             for i in range(0,nl): 
                 ax = fig.add_axes([X[0],Y[i],plot_length,plot_height],frameon=True, xscale=None, yscale=None)  
-                ax.plot_date(tseries_list[i][:,0],tseries_list[i][:,1],colors[i],linewidth = 1.0)     
-           
+                ax.plot_date(tseries_list[i][:,0],tseries_list[i][:,1],colors[i],linewidth = 2.0)     
+                ax.plot_date(time,upper_expect_array,'r--',linewidth=2.0) 
+                ax.plot_date(time,median_array,'m-',linewidth=2.0) 
+                ax.plot_date(time,lower_expect_array,'r--',linewidth=2.0)
+                ax.plot_date(time,surface_level_array,'g--',linewidth=4.0)
+            
+            legend_list.append('95% upper quantile')
+            legend_list.append('median')        
+            legend_list.append('5% lower quantile')    
+            legend_list.append('surface level')            
+
             ax.set_title(plot_title,fontsize=fs)
             (x, y) = ax.title.get_position()
             #ax.title.set_y(0.95 * y)    
@@ -1701,28 +1820,35 @@ class Heads(TimeSeriesBase):
           
                 
             def format_date(dates, pos=None):
-                return num2date(dates).strftime('%Y')
+                # return num2date(dates).strftime('%Y')
+                # return num2date(dates).strftime('%d-%m-%Y %H:%M')   
+                return num2date(dates).strftime('%m-%Y')              
+            
             
             # def format_date(dates, pos=None):
             #     return num2date(dates).strftime('%d-%m-%Y %H:%M')        
-        
+
             ax.set_ylabel(yas_title,fontsize=fs)
-          
-            ax.set_xlabel('date (yyyy)',fontsize=fs)
+            # ax.tick_params(axis='y', labelsize=fs)
+            for label in ax.get_yticklabels():
+                label.set_fontsize(fs)
+
+
             ax.xaxis.set_major_formatter(FuncFormatter(format_date))
+            ax.set_xlabel('date (mm-yyyy)',fontsize=fs,ha='center', rotation=45)
+            
+            
+            # for tick in ax.xaxis.get_major_ticks():
+            #     tick.label.set_fontsize(fs)
+            #     tick.label.set_rotation(0)
+            #     # tick.label.set_rotation(45)
+            
+            # for label in ax.xaxis.get_majorticklabels():
+            #     #ha=label.get_horizontalalignment()
+            #     label.set_horizontalalignment('center')
+                
+                
     
-            
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-                tick.label.set_rotation(0)
-                # tick.label.set_rotation(45)
-            
-            for label in ax.xaxis.get_majorticklabels():
-                #ha=label.get_horizontalalignment()
-                label.set_horizontalalignment('center')
-                
-                
-        
             ax.annotate('Legend', xy=(0.05, -0.14), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)#this is for 1 column 2 rows
             leg = ax.legend((legend_list), ncol=2,shadow=False,bbox_to_anchor=[0.045, -0.27], loc='lower left',frameon=False)
             ltext  = leg.get_texts() 
@@ -1736,67 +1862,213 @@ class Heads(TimeSeriesBase):
             x_lower_left = left_margin
             y_lower_left = 1-top_margin-plot_height
 
-            fig=figure(num=None, figsize=(8,8),dpi=50,facecolor='w', edgecolor='k')# figsize=(width, height) in inches.
+            fig=figure(num=None, figsize=(20,20),dpi=50,facecolor='w', edgecolor='k')# figsize=(width, height) in inches.
             ax = fig.add_axes([x_lower_left,y_lower_left,plot_length,plot_height],frameon=True, xscale=None, yscale=None)  
 
             for i in range(0,nl): 
-                ax.plot_date(tseries_list[i][:,0],tseries_list[i][:,1],colors[i],linewidth = 1.0)     
-    
+                ax.plot_date(tseries_list[i][:,0],tseries_list[i][:,1],colors[i],linewidth = 2.0)     
+
+            ax.plot_date(time,upper_expect_array,'r--',linewidth=2.0) 
+            legend_list.append('95% upper quantile')
+            ax.plot_date(time,median_array,'m-',linewidth=2.0)  
+            legend_list.append('median')
+            ax.plot_date(time,lower_expect_array,'r--',linewidth=2.0)         
+            legend_list.append('5% lower quantile')
+            ax.plot_date(time,surface_level_array,'g--',linewidth=2.0)         
+            legend_list.append('surface level')
+            
+            
+            # leg = ax.legend((legend_list),ncol=3,bbox_to_anchor=(0.85,-0.24),frameon=False)
+            
+            Xleg = 0.2
+            Yleg = -0.2
+            
+            ax.annotate('Legend', xy=(Xleg, Yleg), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)#this is for 1 column 2 rows
+            leg = ax.legend((legend_list), ncol=2,shadow=False,bbox_to_anchor=[Xleg, Yleg-0.03], loc='upper left',frameon=False)
+            ltext  = leg.get_texts() 
+            plt.setp(ltext, fontsize=fs)    # the legend text fontsize
+        
+            title='Observed and modeled groundwater heads in piezometer '+ self.name
+            ax.set_title(title,fontsize=fs)       
+            (x, y) = ax.title.get_position()
+            #ax.title.set_y(0.95 * y)               
+               
+
             ax.set_title(plot_title,fontsize=fs)
             (x, y) = ax.title.get_position()
             #ax.title.set_y(0.95 * y)    
             ax.grid(True)         
-        
-        
-    
+
+            
+            timespan = plotmaxtime[-1]-plotmaxtime[0]
+            tspan1 = 1.
+            tspan2 = 2.
+            tspan3 = 30.
+            tspan4 = 365.*2
+            tspan5 = 365.*10
+
+            if timespan<tspan1:
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%d-%m-%Y %H:%M')
+                ax.set_xlabel('date (mm-yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(HourLocator())
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date))                 
                 
-            def format_date(dates, pos=None):
-                return num2date(dates).strftime('%Y')
+                
+            elif timespan>=tspan1 and timespan<tspan2:  
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%d-%m-%Y %H')     
+                ax.set_xlabel('date (mm-yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(HourLocator())
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date)) 
+                
+            elif timespan>=tspan2 and timespan<tspan3:  
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%d-%m-%Y')     
+                ax.set_xlabel('date (mm-yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(DayLocator())
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date))     
+                
+            elif timespan>=tspan3 and timespan<tspan4:  
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%m-%Y')   
+                ax.set_xlabel('date (mm-yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(MonthLocator())
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date))            
             
-            def format_date(dates, pos=None):
-                return num2date(dates).strftime('%d-%m-%Y %H:%M')    
-            
-            def format_date(dates, pos=None):
-                return num2date(dates).strftime('%d-%m-%Y')             
+            elif timespan>=tspan4 and timespan<tspan5:  
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%Y')                     
+                ax.set_xlabel('date (yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(YearLocator(1))
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date))                       
+                
+            else:
+                def format_date(dates, pos=None):
+                    return num2date(dates).strftime('%Y')                     
+                ax.set_xlabel('date (yyyy)',fontsize=fs,ha='center')
+                ax.xaxis.set_major_locator(YearLocator(5))
+                # ax.xaxis.set_minor_locator(MonthLocator(bymonthday=15))
+                ax.xaxis.set_major_formatter(FuncFormatter(format_date))      
             
         
             ax.set_ylabel(yas_title,fontsize=fs)
-          
-            ax.set_xlabel('date (yyyy)',fontsize=fs)
-            ax.xaxis.set_major_formatter(FuncFormatter(format_date))
+            # ax.tick_params(axis='y', labelsize=fs)
+            for label in ax.get_yticklabels():
+                label.set_fontsize(fs)
+                
+
+            
+            ax.xaxis.set_tick_params(rotation=45, labelsize=fs)
+            
+        #     ax.grid(True)  
+        #     show()            
+            
+
+        # if save_plot == True:
+        #     if plot_title is not None:
+        #         figname = "plot_of_{}".format(plot_title)
+        #     else:
+        #         figname = "time_series_plot"
+        #     try: 
+        #         abs_path=os.path.dirname(os.path.abspath(__file__))
+        #         abs_path_splitted=abs_path.split('\\')
+        #         path_to_parent_folder_elements=abs_path_splitted[:-1]
+        #         path_to_parent_folder=os.path.join(*path_to_parent_folder_elements)
+        #         splitted=path_to_parent_folder.split(':')#trick  to  repair  path
+        #         path_to_parent_folder=splitted[0]+':\\'+splitted[1]#trick  to  repair  path
+        #         path_to_file_folder=os.path.join(path_to_parent_folder,'results')
+        #         savefig(path_to_file_folder+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
+              
+        #     except:
+        #         curdir=os.getcwd()
+        #         savefig(curdir+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
+              
+                
+#### tag_begin
+
+        #English version
     
-            
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label.set_fontsize(fs)
-                tick.label.set_rotation(0)
-                # tick.label.set_rotation(45)
-            
-            for label in ax.xaxis.get_majorticklabels():
-                #ha=label.get_horizontalalignment()
-                label.set_horizontalalignment('center')
-                
-                
+        list_of_header_items=[
+                'piezometer',
+                'X',
+                'Y',
+                'mean screen depth (m NAP)',
+                'surface level (m NAP)',
+                '5% lower quantile (m NAP)',
+                'median (m NAP)',
+                '95% upper quantile (m NAP)']
+    
+    
+        # #Dutch version
+        # list_of_header_items=[
+        # 'Naam',
+        # 'X-coordinaat (RD)',
+        # 'Y-coordinaat (RD)',
+        # 'Filterdiepte (m NAP)',
+        # 'Maaiveldhoogte (m NAP)',
+        # '5'+'%'+' laag kwantiel (m NAP)',
+        # 'Mediaan (m NAP)',
+        # '5'+'%'+' hoog kwantiel (m NAP)']            
+    
+        nchar = 10
+        list_of_values=[
+        self.name.rjust(nchar),
+        str('%10.2f' %X).rjust(nchar),
+        str('%10.2f' %Y).rjust(nchar),
+        str('%10.2f' %Z).rjust(nchar),
+        str('%10.2f' %surface_level).rjust(nchar),
+        str('%10.2f' %lower_expect).rjust(nchar),
+        str('%10.2f' %median).rjust(nchar),
+        str('%10.2f' %upper_expect).rjust(nchar)]    
+
+    
+        # X=[0.30,0.60]
+        # Y=[-0.37]
+        delx1 = 0
+        delx2 = delx1+0.3
+        dely1=-0.3
+        X = [Xleg+delx1,Xleg+delx2]
+        Y = [Yleg+dely1]
         
-            ax.annotate('Legend', xy=(0.05, -0.14), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)#this is for 1 column 2 rows
-            leg = ax.legend((legend_list), ncol=nl,shadow=False,bbox_to_anchor=[0.045, -0.27], loc='lower left',frameon=False)
-            ltext  = leg.get_texts() 
-            plt.setp(ltext, fontsize=fs)    # the legend text fontsize
-            
-            show()            
-            
-            
-            
-            
-            
-            
-            
-            
+        delta_y = 0.03
         
+        Nitems = len(list_of_values)
+        
+        for i in range(1,Nitems):    
+            last_y=Y[-1]                      
+            Y.append(last_y-delta_y)
+    
+        for i in range(0,Nitems):
+            ax.annotate(list_of_header_items[i], xy=(X[0],Y[i]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+            ax.annotate(list_of_values[i], xy=(X[1],Y[i]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+        
+        # X[0] = X[0] + 0.3
+        # X[1] = X[1] + 0.3
+
+        # for i in range(Nitems,len(list_of_header_items)):    
+        #     last_y=Y[-1]                      
+        #     Y.append(last_y-delta_y)
+    
+        # for i in range(5,len(list_of_header_items)):
+        #     ax.annotate(list_of_header_items[i], xy=(X[0],Y[i-Nitems]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+        #     ax.annotate(list_of_values[i], xy=(X[1],Y[i-Nitems]), xycoords='axes fraction',horizontalalignment='left', verticalalignment='center',fontsize=fs)
+
+        ax.grid(True)
+         
+        show()
+        
+
         if save_plot == True:
-            if plot_title is not None:
-                figname = "plot_of_{}".format(plot_title)
+            if self.name is not None:
+                figname = "multiplot_of_{}".format(self.name)
             else:
-                figname = "time_series_plot"
+                figname = "multiplot"
             try: 
                 abs_path=os.path.dirname(os.path.abspath(__file__))
                 abs_path_splitted=abs_path.split('\\')
@@ -1810,7 +2082,15 @@ class Heads(TimeSeriesBase):
             except:
                 curdir=os.getcwd()
                 savefig(curdir+'\\'+figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', format=None,transparent=False, bbox_inches=None, pad_inches=0.1)
-                       
+
+
+### tag_end           
+                
+              
+                
+              
+                
+              
         return ax  
 
 
@@ -1843,39 +2123,48 @@ if __name__ == "__main__":
     tminstr = '01-01-1900 08:00:00'
     tmaxstr = '31-12-2100 08:30:00'
     
-    path_to_file = os.path.join(path_to_resources_folder,'28AP0093_1.txt')
+    # path_to_file = os.path.join(path_to_resources_folder,'28AP0093_1.txt')
+    # heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
+    # ax = heads.plot()
+    # harmonic = heads.harmonic_observed
+    
+    # output_string = heads.generate_output(model_definition = None)
+    # print('1852 output_string: ',output_string)    
+    
+    # path_to_file = os.path.join(path_to_resources_folder,'HBpb001-1.csv')
+    # path_to_file = os.path.join(path_to_resources_folder,'HBpb003-1.csv')
+    # path_to_file = os.path.join(path_to_resources_folder,'HBpb004.csv')
+    # heads = Heads.read_from_DINO(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr, artdiverformat = True )
+
+    # ax = heads.plot()
+    # ax = heads.plot_harmonics()
+
+    
+    # output_string = heads.generate_output(model_definition = None)
+    # print('1868 output_string: ',output_string)
+    
+    # print('1870 representer: ',repr(heads))
+    
+    
+
+    # path_to_file = os.path.join(path_to_resources_folder,'GLD000000014660_IMBRO.xml')
+    # heads = Heads.read_from_BRO_GLD(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
+
+    # ax = heads.plot()
+    # ax = heads.plot_harmonics()
+
+    
+    # output_string = heads.generate_output(model_definition = None)
+    # print('1868 output_string: ',output_string)    
+    
+    
+    path_to_file = os.path.join(path_to_resources_folder,'20222180_Groenzoom_v8_PIJ_A01.txt')
     heads = Heads.read_from_csv(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
     ax = heads.plot()
     harmonic = heads.harmonic_observed
     
     output_string = heads.generate_output(model_definition = None)
-    print('1852 output_string: ',output_string)    
-    
-    path_to_file = os.path.join(path_to_resources_folder,'HBpb001-1.csv')
-    path_to_file = os.path.join(path_to_resources_folder,'HBpb003-1.csv')
-    path_to_file = os.path.join(path_to_resources_folder,'HBpb004.csv')
-    heads = Heads.read_from_DINO(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr, artdiverformat = True )
-
-    ax = heads.plot()
-    ax = heads.plot_harmonics()
-
-    
-    output_string = heads.generate_output(model_definition = None)
-    print('1868 output_string: ',output_string)
-    
-    print('1870 representer: ',repr(heads))
-    
-    
-
-    path_to_file = os.path.join(path_to_resources_folder,'GLD000000014660_IMBRO.xml')
-    heads = Heads.read_from_BRO_GLD(path_to_file, tminstr = tminstr, tmaxstr = tmaxstr)
-
-    ax = heads.plot()
-    ax = heads.plot_harmonics()
-
-    
-    output_string = heads.generate_output(model_definition = None)
-    print('1868 output_string: ',output_string)    
+    print('1898 output_string: ',output_string)
     
     
     
